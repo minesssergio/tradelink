@@ -207,3 +207,41 @@ export interface SchwabTransactionRecord {
   raw_data: Record<string, unknown> | null;
   created_at?: string;
 }
+
+/**
+ * Order record as stored in schwab_orders table (second data stream).
+ */
+export interface SchwabOrderRecord {
+  id?: string;
+  user_id: string;
+  account_hash: string;
+  order_id: string;
+  entered_time: string; // ISO 8601
+  close_time: string | null;
+  status: string;
+  order_type: string | null;
+  duration: string | null;
+  symbol: string | null;
+  instruction: string | null;
+  position_effect: string | null;
+  quantity: number | null;
+  filled_quantity: number | null;
+  price: number | null;
+  raw_data: Record<string, unknown> | null;
+  created_at?: string;
+}
+
+/**
+ * Daily balance snapshot as stored in schwab_balance_snapshots table.
+ */
+export interface SchwabBalanceSnapshotRecord {
+  id?: string;
+  user_id: string;
+  account_hash: string;
+  snapshot_date: string; // YYYY-MM-DD
+  net_liq: number | null;
+  cash: number | null;
+  available_funds: number | null;
+  positions_value: number | null;
+  created_at?: string;
+}

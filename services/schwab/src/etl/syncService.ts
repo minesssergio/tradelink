@@ -1,9 +1,9 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SchwabConfig } from '../types/schwab.types.js';
 import { logger } from '../lib/logger.js';
-import { extractAccountsAndPositions, extractTransactions } from './dataExtractor.js';
-import { transformAccount, transformPositions, transformTransactions } from './dataTransformer.js';
-import { upsertAccount, upsertPositions, insertTransactions, deleteStalePositions } from './etlLoader.js';
+import { extractAccountsAndPositions, extractTransactions, extractOrders } from './dataExtractor.js';
+import { transformAccount, transformPositions, transformTransactions, transformOrders, transformBalanceSnapshot } from './dataTransformer.js';
+import { upsertAccount, upsertPositions, insertTransactions, deleteStalePositions, upsertOrders, upsertBalanceSnapshot } from './etlLoader.js';
 
 export interface SyncResult {
   userId: string;
@@ -11,6 +11,10 @@ export interface SyncResult {
   accountsProcessed: number;
   positionsProcessed: number;
   transactionsProcessed: number;
+  ordersProcessed: number;
+  snapshotsProcessed: number;
+  /** Tables whose migrations are pending in Supabase (steps skipped, not failed) */
+  skippedMissingTables: string[];
   error?: Error;
 }
 
@@ -32,6 +36,9 @@ export async function runSyncJob(
     accountsProcessed: 0,
     positionsProcessed: 0,
     transactionsProcessed: 0,
+    ordersProcessed: 0,
+    snapshotsProcessed: 0,
+    skippedMissingTables: [],
   };
 
   try {
@@ -72,6 +79,36 @@ export async function runSyncJob(
         const transactions = transformTransactions(userId, account.account_hash, rawTransactions);
         await insertTransactions(supabase, transactions);
         result.transactionsProcessed += transactions.length;
+      }
+
+      // 6. EXTRACT + LOAD: Orders (second data stream)
+      const rawOrders = await extractOrders(
+        supabase,
+        userId,
+        config,
+        account.account_hash,
+        startDate ?? new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString(),
+        endDate ?? new Date().toISOString()
+      );
+      const orders = transformOrders(userId, account.account_hash, rawOrders);
+      const ordersOk = await upsertOrders(supabase, orders);
+      if (ordersOk) {
+        result.ordersProcessed += orders.length;
+      } else if (!result.skippedMissingTables.includes('schwab_orders')) {
+        result.skippedMissingTables.push('schwab_orders');
+        logger.warn('schwab_orders table missing — apply migration 004. Orders step skipped.', { userId });
+      }
+
+      // 7. LOAD: Today's balance snapshot (long-term growth tracking)
+      const snapshot = transformBalanceSnapshot(userId, rawAccount);
+      if (snapshot) {
+        const snapOk = await upsertBalanceSnapshot(supabase, snapshot);
+        if (snapOk) {
+          result.snapshotsProcessed++;
+        } else if (!result.skippedMissingTables.includes('schwab_balance_snapshots')) {
+          result.skippedMissingTables.push('schwab_balance_snapshots');
+          logger.warn('schwab_balance_snapshots table missing — apply migration 005. Snapshot step skipped.', { userId });
+        }
       }
     }
 

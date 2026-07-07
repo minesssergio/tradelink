@@ -82,3 +82,37 @@ export async function extractTransactions(
 
   return data; // Array of transaction objects
 }
+
+/**
+ * Fetches orders for a specific account (second data stream, like TradesViz).
+ * Calls /trader/v1/accounts/{accountHash}/orders
+ *
+ * Note: orders complement transactions — they carry the full order lifecycle
+ * (WORKING/FILLED/CANCELED, limit price vs executions). The trade engine keeps
+ * using transactions because the orders endpoint does not report ITM expiry
+ * prices nor cash movements.
+ */
+export async function extractOrders(
+  supabase: SupabaseClient,
+  userId: string,
+  config: SchwabConfig,
+  accountHash: string,
+  fromEnteredTime: string,
+  toEnteredTime: string
+): Promise<any[]> {
+  logger.info('Extracting orders', { userId, accountHash, fromEnteredTime, toEnteredTime });
+
+  const queryParams = new URLSearchParams({
+    fromEnteredTime,
+    toEnteredTime,
+  });
+
+  const data = await fetchWithAuth(
+    supabase,
+    userId,
+    config,
+    `/accounts/${accountHash}/orders?${queryParams.toString()}`
+  );
+
+  return data; // Array of order objects
+}

@@ -1,11 +1,16 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { 
-  SchwabAccountRecord, 
-  SchwabPositionRecord, 
+import {
+  SchwabAccountRecord,
+  SchwabPositionRecord,
   SchwabTransactionRecord,
+  SchwabOrderRecord,
+  SchwabBalanceSnapshotRecord,
   SchwabServiceError,
   SchwabErrorCode
 } from '../types/schwab.types.js';
+
+/** PostgREST error code for "table not found in schema cache" (migration not applied yet). */
+export const TABLE_MISSING_CODE = 'PGRST205';
 
 export async function upsertAccount(
   supabase: SupabaseClient, 
@@ -85,6 +90,55 @@ export async function deleteStalePositions(
       { cause: error }
     );
   }
+}
+
+/**
+ * Upserts orders (updates on conflict — an order's status evolves over time:
+ * WORKING → FILLED/CANCELED — so the latest payload must win).
+ * Returns false (without throwing) if the schwab_orders table doesn't exist yet.
+ */
+export async function upsertOrders(
+  supabase: SupabaseClient,
+  orders: SchwabOrderRecord[]
+): Promise<boolean> {
+  if (orders.length === 0) return true;
+
+  const { error } = await supabase
+    .from('schwab_orders')
+    .upsert(orders, { onConflict: 'account_hash,order_id' });
+
+  if (error) {
+    if (error.code === TABLE_MISSING_CODE) return false;
+    throw new SchwabServiceError(
+      SchwabErrorCode.DB_UPSERT_FAILED,
+      `Failed to upsert orders batch`,
+      { cause: error }
+    );
+  }
+  return true;
+}
+
+/**
+ * Upserts today's balance snapshot (last sync of the day wins).
+ * Returns false (without throwing) if the snapshots table doesn't exist yet.
+ */
+export async function upsertBalanceSnapshot(
+  supabase: SupabaseClient,
+  snapshot: SchwabBalanceSnapshotRecord
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('schwab_balance_snapshots')
+    .upsert(snapshot, { onConflict: 'account_hash,snapshot_date' });
+
+  if (error) {
+    if (error.code === TABLE_MISSING_CODE) return false;
+    throw new SchwabServiceError(
+      SchwabErrorCode.DB_UPSERT_FAILED,
+      `Failed to upsert balance snapshot for ${snapshot.account_hash}`,
+      { cause: error }
+    );
+  }
+  return true;
 }
 
 export async function insertTransactions(

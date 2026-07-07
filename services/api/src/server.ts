@@ -20,7 +20,12 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+// CORS: open in dev; restrict in production via CORS_ORIGIN (comma-separated list)
+app.use(cors(
+  process.env.CORS_ORIGIN
+    ? { origin: process.env.CORS_ORIGIN.split(',').map(o => o.trim()) }
+    : undefined
+));
 app.use(express.json());
 
 // Health Check
@@ -33,6 +38,12 @@ app.use('/api/v1/portfolio', authMiddleware, portfolioRoutes);
 // Error Handling
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`🚀 API Server running on http://localhost:${PORT}`);
-});
+// On serverless platforms (Vercel) the platform invokes the exported app;
+// only bind a port when running as a standalone process.
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 API Server running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;

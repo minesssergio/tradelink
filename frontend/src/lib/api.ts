@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 
-const API_BASE = 'http://localhost:3001/api/v1';
+// Configurable for production (Vercel): set VITE_API_BASE_URL in the frontend env.
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
 
 async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
   const { data } = await supabase.auth.getSession();
@@ -32,6 +33,8 @@ export const api = {
   getAccounts: () => fetchWithAuth('/portfolio/accounts'),
   getPositions: () => fetchWithAuth('/portfolio/positions'),
   getBalances: () => fetchWithAuth('/portfolio/balances'),
+  getOrders: () => fetchWithAuth('/portfolio/orders'),
+  getGrowth: () => fetchWithAuth('/portfolio/growth'),
   getTransactions: (accountHash?: string) => {
     const q = accountHash ? `?accountHash=${encodeURIComponent(accountHash)}` : '';
     return fetchWithAuth(`/portfolio/transactions${q}`);

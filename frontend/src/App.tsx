@@ -12,6 +12,8 @@ import { PlaceholderPage } from './pages/PlaceholderPage';
 
 // New Pages
 import { TradesList } from './pages/TradesList';
+import { Orders } from './pages/Orders';
+import { AccountGrowth } from './pages/AccountGrowth';
 import { OverallStatistics } from './pages/OverallStatistics';
 import { EquityCurve } from './pages/EquityCurve';
 import { ProfitLossCharts } from './pages/ProfitLossCharts';
@@ -55,6 +57,7 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="positions" element={<Positions />} />
         <Route path="transactions" element={<Transactions />} />
+        <Route path="orders" element={<Orders />} />
         <Route path="trades" element={<TradesList />} />
         <Route path="settings" element={<Settings />} />
         
@@ -63,6 +66,7 @@ function AppRoutes() {
         <Route path="journal/notes" element={<JournalNotes />} />
         <Route path="journal/plans" element={<PlaceholderPage title="Trade / Day Plans" />} />
         <Route path="reports/equity" element={<EquityCurve />} />
+        <Route path="reports/growth" element={<AccountGrowth />} />
         <Route path="reports/statistics" element={<OverallStatistics />} />
         <Route path="reports/pnl" element={<ProfitLossCharts />} />
         <Route path="reports/winrate" element={<WinRateCharts />} />

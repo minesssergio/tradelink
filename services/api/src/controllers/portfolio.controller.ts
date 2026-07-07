@@ -112,6 +112,83 @@ export const getBalances = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+// PostgREST code for "table not found" — migration pending in Supabase
+const TABLE_MISSING = 'PGRST205';
+
+/**
+ * Orders data stream (order lifecycle: WORKING/FILLED/CANCELED, limit price vs
+ * fills). Complements transactions; the trade engine stays on transactions.
+ */
+export const getOrders = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { accountHash, status } = req.query;
+
+    const hashes = await getUserAccountHashes(req.user!.id);
+    if (hashes.length === 0) return res.json({ data: [] });
+
+    let scopedHashes = hashes;
+    if (accountHash) {
+      if (!hashes.includes(String(accountHash))) {
+        return res.status(403).json({ error: 'Account does not belong to the authenticated user' });
+      }
+      scopedHashes = [String(accountHash)];
+    }
+
+    const all: unknown[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      let query = getServiceClient()
+        .from('schwab_orders')
+        .select('*')
+        .in('account_hash', scopedHashes)
+        .order('entered_time', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+      if (status) query = query.eq('status', String(status));
+
+      const { data, error } = await query;
+      if (error) {
+        if (error.code === TABLE_MISSING) {
+          return res.json({ data: [], setupRequired: 'schwab_orders' });
+        }
+        throw error;
+      }
+      all.push(...(data ?? []));
+      if (!data || data.length < PAGE_SIZE) break;
+    }
+    res.json({ data: all });
+  } catch (err) {
+    console.error('[API] getOrders error:', err);
+    next(err);
+  }
+};
+
+/**
+ * Daily balance snapshots — the account's real Net Liq history for long-term
+ * growth tracking (includes deposits/withdrawals and market appreciation).
+ */
+export const getGrowth = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const hashes = await getUserAccountHashes(req.user!.id);
+    if (hashes.length === 0) return res.json({ data: [] });
+
+    const { data, error } = await getServiceClient()
+      .from('schwab_balance_snapshots')
+      .select('*')
+      .in('account_hash', hashes)
+      .order('snapshot_date', { ascending: true });
+
+    if (error) {
+      if (error.code === TABLE_MISSING) {
+        return res.json({ data: [], setupRequired: 'schwab_balance_snapshots' });
+      }
+      throw error;
+    }
+    res.json({ data });
+  } catch (err) {
+    console.error('[API] getGrowth error:', err);
+    next(err);
+  }
+};
+
 export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { accountHash, type, limit, offset = 0 } = req.query;

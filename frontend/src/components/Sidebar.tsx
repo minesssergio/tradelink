@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   Activity, LayoutDashboard, List, Calendar as CalendarIcon,
   BookOpen, BarChart2, MessageSquare, Download, Plus,
-  Settings, LogOut, ChevronDown, ChevronRight, Wallet, FileText
+  Settings, LogOut, ChevronDown, ChevronRight, Wallet, FileText, ClipboardList
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -40,6 +40,11 @@ export const Sidebar: React.FC = () => {
           <span>Transactions</span>
         </NavLink>
 
+        <NavLink to="/orders" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+          <ClipboardList size={18} />
+          <span>Orders</span>
+        </NavLink>
+
         <NavLink to="/calendar" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
           <CalendarIcon size={18} />
           <span>Calendar</span>
@@ -74,6 +79,7 @@ export const Sidebar: React.FC = () => {
           {reportsOpen && (
             <div className="nav-sublinks" style={{ paddingLeft: '2.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.25rem' }}>
               <NavLink to="/reports/equity" className={({ isActive }) => `nav-link nav-link-sub ${isActive ? 'active' : ''}`}>Equity Curve</NavLink>
+              <NavLink to="/reports/growth" className={({ isActive }) => `nav-link nav-link-sub ${isActive ? 'active' : ''}`}>Account Growth</NavLink>
               <NavLink to="/reports/statistics" className={({ isActive }) => `nav-link nav-link-sub ${isActive ? 'active' : ''}`}>Overall Statistics</NavLink>
               <NavLink to="/reports/pnl" className={({ isActive }) => `nav-link nav-link-sub ${isActive ? 'active' : ''}`}>Profit & Loss Charts</NavLink>
               <NavLink to="/reports/winrate" className={({ isActive }) => `nav-link nav-link-sub ${isActive ? 'active' : ''}`}>Win-Rate Charts</NavLink>
