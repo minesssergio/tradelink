@@ -1,0 +1,48 @@
+# ==============================================================================
+# Trading Journal — .gitignore
+# ==============================================================================
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.js.map
+*.d.ts.map
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temp
+tmp/
+temp/
+
+# Scratch / debug files (may contain real account data)
+scratch/
+scratch*.ts
+*_dump.json
+
+# Personal reference screenshots (contain real account data)
+Ejemplos/
+
+# Compiled JS next to TS sources (build artifacts)
+services/schwab/src/**/*.js
+services/api/dist/
