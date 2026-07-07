@@ -5,7 +5,7 @@ import { FilterBar } from '../components/FilterBar';
 import { FilterProvider } from '../context/FilterContext';
 
 // Pages where the global account/date filters don't apply
-const UNFILTERED_ROUTES = ['/settings', '/journal', '/ai'];
+const UNFILTERED_ROUTES = ['/settings', '/journal'];
 
 export const DashboardLayout: React.FC = () => {
   const { pathname } = useLocation();

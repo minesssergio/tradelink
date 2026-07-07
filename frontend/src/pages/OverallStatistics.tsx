@@ -1,11 +1,20 @@
 import React, { useMemo } from 'react';
 import { calculateStats } from '../lib/tradeEngine';
+import { advancedStats } from '../lib/analytics';
 import { usePortfolioData } from '../hooks/usePortfolioData';
-import { Activity, Target } from 'lucide-react';
+import { Activity, Target, Flame, Shield, Receipt } from 'lucide-react';
+
+const fmtDuration = (ms: number) => {
+  const mins = ms / 60000;
+  if (mins < 60) return `${mins.toFixed(0)} min`;
+  if (mins < 60 * 24) return `${(mins / 60).toFixed(1)} h`;
+  return `${(mins / 60 / 24).toFixed(1)} días`;
+};
 
 export const OverallStatistics: React.FC = () => {
   const { closedTrades: trades, loading } = usePortfolioData();
   const stats = useMemo(() => calculateStats(trades), [trades]);
+  const adv = useMemo(() => advancedStats(trades), [trades]);
 
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading Statistics...</div>;
@@ -95,8 +104,87 @@ export const OverallStatistics: React.FC = () => {
               <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Worst Losing Trade</span>
               <span className="badge badge-danger">-{formatMoney(Math.abs(stats.worstTrade))}</span>
             </div>
+            {adv && (
+              <>
+                <div className="flex justify-between items-center">
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Median Trade PnL</span>
+                  <span className={`badge ${adv.medianPnL >= 0 ? 'badge-success' : 'badge-danger'}`}>{adv.medianPnL < 0 ? '-' : ''}{formatMoney(adv.medianPnL)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Std Dev per Trade</span>
+                  <span style={{ fontWeight: 600 }}>{formatMoney(adv.stdDevPnL)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Avg Duration</span>
+                  <span style={{ fontWeight: 600 }}>{fmtDuration(adv.avgDurationMs)}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
+
+        {/* Expectancy / edge */}
+        {adv && (
+          <div className="glass-card" style={{ padding: '1.5rem' }}>
+            <h3 style={{ borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Shield size={18} /> Edge
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div className="flex justify-between items-center">
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Expectancy (per trade)</span>
+                <span className={`badge ${adv.expectancy >= 0 ? 'badge-success' : 'badge-danger'}`}>{adv.expectancy < 0 ? '-' : ''}{formatMoney(adv.expectancy)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Payoff Ratio (avg win / avg loss)</span>
+                <span style={{ fontWeight: 600 }}>{adv.payoffRatio.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Wins / Losses / Breakeven</span>
+                <span style={{ fontWeight: 600 }}>
+                  <span style={{ color: 'var(--success)' }}>{adv.totalWins}</span> / <span style={{ color: 'var(--danger)' }}>{adv.totalLosses}</span> / {adv.breakevenTrades}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Streaks */}
+        {adv && (
+          <div className="glass-card" style={{ padding: '1.5rem' }}>
+            <h3 style={{ borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Flame size={18} /> Streaks
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div className="flex justify-between items-center">
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Max Consecutive Wins</span>
+                <span className="badge badge-success">{adv.maxConsecWins} (+{formatMoney(adv.maxWinStreakPnL)})</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Max Consecutive Losses</span>
+                <span className="badge badge-danger">{adv.maxConsecLosses} (-{formatMoney(adv.maxLossStreakPnL)})</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Costs */}
+        {adv && (
+          <div className="glass-card" style={{ padding: '1.5rem' }}>
+            <h3 style={{ borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Receipt size={18} /> Costs
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div className="flex justify-between items-center">
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Total Fees</span>
+                <span className="badge badge-danger">-{formatMoney(adv.totalFees)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Fee Drag (% of gross wins)</span>
+                <span style={{ fontWeight: 600, color: adv.feeDragPct > 15 ? 'var(--danger)' : 'var(--text-primary)' }}>{adv.feeDragPct.toFixed(1)}%</span>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

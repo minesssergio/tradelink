@@ -83,14 +83,14 @@ export const Sidebar: React.FC = () => {
               <NavLink to="/reports/statistics" className={({ isActive }) => `nav-link nav-link-sub ${isActive ? 'active' : ''}`}>Overall Statistics</NavLink>
               <NavLink to="/reports/pnl" className={({ isActive }) => `nav-link nav-link-sub ${isActive ? 'active' : ''}`}>Profit & Loss Charts</NavLink>
               <NavLink to="/reports/winrate" className={({ isActive }) => `nav-link nav-link-sub ${isActive ? 'active' : ''}`}>Win-Rate Charts</NavLink>
-              <NavLink to="/reports/tags" className={({ isActive }) => `nav-link nav-link-sub ${isActive ? 'active' : ''}`}>Tags</NavLink>
+              <NavLink to="/reports/breakdowns" className={({ isActive }) => `nav-link nav-link-sub ${isActive ? 'active' : ''}`}>Breakdowns</NavLink>
             </div>
           )}
         </div>
 
-        <NavLink to="/ai" className={({ isActive }) => `nav-link mt-2 ${isActive ? 'active' : ''}`}>
+        <NavLink to="/insights" className={({ isActive }) => `nav-link mt-2 ${isActive ? 'active' : ''}`}>
           <MessageSquare size={18} />
-          <span>AI Q&A</span>
+          <span>Insights</span>
         </NavLink>
 
         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', padding: '0 0.5rem' }}>

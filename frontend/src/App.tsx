@@ -8,7 +8,6 @@ import { Dashboard } from './pages/Dashboard';
 import { Positions } from './pages/Positions';
 import { Transactions } from './pages/Transactions';
 import { Settings } from './pages/Settings';
-import { PlaceholderPage } from './pages/PlaceholderPage';
 
 // New Pages
 import { TradesList } from './pages/TradesList';
@@ -20,6 +19,9 @@ import { ProfitLossCharts } from './pages/ProfitLossCharts';
 import { WinRateCharts } from './pages/WinRateCharts';
 import { CalendarView } from './pages/CalendarView';
 import { JournalNotes } from './pages/JournalNotes';
+import { TradePlans } from './pages/TradePlans';
+import { Breakdowns } from './pages/Breakdowns';
+import { Insights } from './pages/Insights';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session, loading } = useAuth();
@@ -64,14 +66,16 @@ function AppRoutes() {
         {/* New TradesViz Routes */}
         <Route path="calendar" element={<CalendarView />} />
         <Route path="journal/notes" element={<JournalNotes />} />
-        <Route path="journal/plans" element={<PlaceholderPage title="Trade / Day Plans" />} />
+        <Route path="journal/plans" element={<TradePlans />} />
         <Route path="reports/equity" element={<EquityCurve />} />
         <Route path="reports/growth" element={<AccountGrowth />} />
         <Route path="reports/statistics" element={<OverallStatistics />} />
         <Route path="reports/pnl" element={<ProfitLossCharts />} />
         <Route path="reports/winrate" element={<WinRateCharts />} />
-        <Route path="reports/tags" element={<PlaceholderPage title="Tags" />} />
-        <Route path="ai" element={<PlaceholderPage title="AI Q&A" />} />
+        <Route path="reports/breakdowns" element={<Breakdowns />} />
+        <Route path="reports/tags" element={<Navigate to="/reports/breakdowns" replace />} />
+        <Route path="insights" element={<Insights />} />
+        <Route path="ai" element={<Navigate to="/insights" replace />} />
       </Route>
     </Routes>
   );

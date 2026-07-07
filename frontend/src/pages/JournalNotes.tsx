@@ -45,6 +45,7 @@ export const JournalNotes: React.FC = () => {
     const { data, error } = await supabase
       .from('journal_notes')
       .select('*')
+      .not('tags', 'cs', '{plan}') // day plans live in the Trade/Day Plans view
       .order('note_date', { ascending: false })
       .order('created_at', { ascending: false });
 
