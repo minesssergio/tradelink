@@ -183,12 +183,14 @@ export function buildTradeEngine(
       }
     }
     
-    // If there's still remaining to close, it means we reversed the position
+    // If there's still remaining to close, it means we reversed the position.
+    // Carry only the unconsumed share of the execution's fees into the new lot
+    // (the rest was already assigned to the closing matches above).
     if (remainingToClose > 0) {
       lots.push({
         ...exec,
         quantity: remainingToClose,
-        // fees were already mostly consumed, keep simple
+        fees: exec.fees * (remainingToClose / exec.quantity),
       });
     }
   }
@@ -199,31 +201,33 @@ export function buildTradeEngine(
   };
 }
 
-// Helper to calculate statistics
+// Helper to calculate statistics.
+// Convention (used across the whole app): a trade is a WIN if netPnL > 0,
+// a LOSS if netPnL < 0; breakeven trades count in totals but in neither side.
 export function calculateStats(trades: ClosedTrade[]) {
   if (trades.length === 0) return null;
 
-  const winningTrades = trades.filter(t => t.grossPnL > 0);
-  const losingTrades = trades.filter(t => t.grossPnL <= 0);
-  
+  const winningTrades = trades.filter(t => t.netPnL > 0);
+  const losingTrades = trades.filter(t => t.netPnL < 0);
+
   const grossPnL = trades.reduce((acc, t) => acc + t.grossPnL, 0);
   const netPnL = trades.reduce((acc, t) => acc + t.netPnL, 0);
-  
-  const totalWinsPnL = winningTrades.reduce((acc, t) => acc + t.grossPnL, 0);
-  const totalLossPnL = Math.abs(losingTrades.reduce((acc, t) => acc + t.grossPnL, 0));
-  
+
+  const totalWinsPnL = winningTrades.reduce((acc, t) => acc + t.netPnL, 0);
+  const totalLossPnL = Math.abs(losingTrades.reduce((acc, t) => acc + t.netPnL, 0));
+
   const profitFactor = totalLossPnL === 0 ? totalWinsPnL : (totalWinsPnL / totalLossPnL);
-  
+
   return {
     totalTrades: trades.length,
     winRate: (winningTrades.length / trades.length) * 100,
     profitFactor,
     grossPnL,
     netPnL,
-    avgTrade: grossPnL / trades.length,
+    avgTrade: netPnL / trades.length,
     avgWin: winningTrades.length > 0 ? (totalWinsPnL / winningTrades.length) : 0,
     avgLoss: losingTrades.length > 0 ? (totalLossPnL / losingTrades.length) : 0,
-    bestTrade: trades.length > 0 ? Math.max(...trades.map(t => t.grossPnL)) : 0,
-    worstTrade: trades.length > 0 ? Math.min(...trades.map(t => t.grossPnL)) : 0,
+    bestTrade: Math.max(...trades.map(t => t.netPnL)),
+    worstTrade: Math.min(...trades.map(t => t.netPnL)),
   };
 }

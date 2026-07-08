@@ -3,6 +3,33 @@ import { api } from '../lib/api';
 import { buildTradeEngine, type ClosedTrade } from '../lib/tradeEngine';
 import { useFilters } from '../context/FilterContext';
 
+// ---------------------------------------------------------------------------
+// Module-level cache: the full history is fetched once per session instead of
+// on every page navigation. Call invalidatePortfolioCache() after a sync (or
+// any server-side data change) so the next mount refetches.
+// ---------------------------------------------------------------------------
+let txPromise: Promise<any[]> | null = null;
+let posPromise: Promise<any[]> | null = null;
+let balPromise: Promise<any[]> | null = null;
+
+export function invalidatePortfolioCache() {
+  txPromise = null;
+  posPromise = null;
+  balPromise = null;
+}
+
+const cachedTransactions = () =>
+  (txPromise ??= api.getTransactions().then(r => r.data || []).catch(err => { txPromise = null; throw err; }));
+const cachedPositions = () =>
+  (posPromise ??= api.getPositions().then(r => r.data || []).catch(err => { posPromise = null; throw err; }));
+const cachedBalances = () =>
+  (balPromise ??= api.getBalances().then(r => r.data || []).catch(err => { balPromise = null; throw err; }));
+
+const friendlyError = (err: unknown) =>
+  err instanceof TypeError
+    ? 'No se puede conectar con el servidor API (localhost:3001). Arranca los servidores con start.bat.'
+    : String((err as any)?.message || err);
+
 /**
  * Fetches the full transaction history once and exposes:
  * - transactions: filtered by account AND date (for raw listings)
@@ -18,18 +45,16 @@ export function usePortfolioData() {
 
   useEffect(() => {
     let cancelled = false;
-    api.getTransactions()
-      .then(res => {
+    cachedTransactions()
+      .then(data => {
         if (cancelled) return;
-        setRawTransactions(res.data || []);
+        setRawTransactions(data);
         setLoading(false);
       })
       .catch(err => {
         if (cancelled) return;
         console.error(err);
-        setError(err instanceof TypeError
-          ? 'No se puede conectar con el servidor API (localhost:3001). Arranca los servidores con start.bat.'
-          : String(err?.message || err));
+        setError(friendlyError(err));
         setLoading(false);
       });
     return () => { cancelled = true; };
@@ -76,16 +101,16 @@ export function useLiveBalances() {
 
   useEffect(() => {
     let cancelled = false;
-    api.getBalances()
-      .then(res => {
+    cachedBalances()
+      .then(data => {
         if (cancelled) return;
-        setRawBalances(res.data || []);
+        setRawBalances(data);
         setLoading(false);
       })
       .catch(err => {
         if (cancelled) return;
         console.error('Live balances unavailable:', err);
-        setError(String(err?.message || err));
+        setError(friendlyError(err));
         setLoading(false);
       });
     return () => { cancelled = true; };
@@ -124,18 +149,16 @@ export function useFilteredPositions() {
 
   useEffect(() => {
     let cancelled = false;
-    api.getPositions()
-      .then(res => {
+    cachedPositions()
+      .then(data => {
         if (cancelled) return;
-        setRawPositions(res.data || []);
+        setRawPositions(data);
         setLoading(false);
       })
       .catch(err => {
         if (cancelled) return;
         console.error(err);
-        setError(err instanceof TypeError
-          ? 'No se puede conectar con el servidor API (localhost:3001). Arranca los servidores con start.bat.'
-          : String(err?.message || err));
+        setError(friendlyError(err));
         setLoading(false);
       });
     return () => { cancelled = true; };

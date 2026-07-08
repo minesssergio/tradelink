@@ -32,8 +32,8 @@ export const Dashboard: React.FC = () => {
       const date = t.closeDate.slice(0, 10);
       if (!byDay[date]) byDay[date] = { date, pnl: 0, win: 0, loss: 0 };
       byDay[date].pnl += t.netPnL;
-      if (t.netPnL >= 0) byDay[date].win++;
-      else byDay[date].loss++;
+      if (t.netPnL > 0) byDay[date].win++;
+      else if (t.netPnL < 0) byDay[date].loss++;
     }
     const days = Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)).slice(-30);
     let cum = 0;

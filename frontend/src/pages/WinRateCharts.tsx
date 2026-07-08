@@ -8,16 +8,20 @@ export const WinRateCharts: React.FC = () => {
   const data = useMemo(() => {
     let wins = 0;
     let losses = 0;
+    let breakeven = 0;
 
     for (const t of closedTrades) {
-      if (t.netPnL >= 0) wins++;
-      else losses++;
+      if (t.netPnL > 0) wins++;
+      else if (t.netPnL < 0) losses++;
+      else breakeven++;
     }
 
-    return [
+    const slices = [
       { name: 'Winning Trades', value: wins, color: 'var(--success)' },
       { name: 'Losing Trades', value: losses, color: 'var(--danger)' }
     ];
+    if (breakeven > 0) slices.push({ name: 'Breakeven', value: breakeven, color: 'var(--text-muted)' });
+    return slices;
   }, [closedTrades]);
 
   return (

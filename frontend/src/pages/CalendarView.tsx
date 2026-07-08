@@ -21,8 +21,8 @@ export const CalendarView: React.FC = () => {
         const day = date.getDate();
         if (!grouped[day]) grouped[day] = { pnl: 0, wins: 0, losses: 0 };
         grouped[day].pnl += t.netPnL;
-        if (t.netPnL >= 0) grouped[day].wins++;
-        else grouped[day].losses++;
+        if (t.netPnL > 0) grouped[day].wins++;
+        else if (t.netPnL < 0) grouped[day].losses++;
       }
     }
     return grouped;

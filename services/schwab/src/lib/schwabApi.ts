@@ -11,6 +11,50 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const TOKEN_EXPIRY_MARGIN_MS = 60_000;
 
 /**
+ * Per-user rotation lock. Schwab invalidates the old refresh token on every
+ * rotation, so two CONCURRENT rotations with the same refresh token make the
+ * loser fail with invalid_grant (and previously mark the session NEEDS_REAUTH
+ * even though the winner stored a perfectly valid new token). All callers in
+ * this process share one in-flight rotation per user.
+ */
+const rotationLocks = new Map<string, Promise<void>>();
+
+async function ensureFreshTokens(
+  supabase: SupabaseClient,
+  userId: string,
+  config: SchwabConfig,
+  endpoint: string
+): Promise<void> {
+  const existing = rotationLocks.get(userId);
+  if (existing) return existing;
+
+  const rotation = (async () => {
+    const tokens = await getTokensByUserId(supabase, userId);
+    if (!tokens || tokens.status !== 'ACTIVE') return; // caller re-validates
+
+    if (new Date(tokens.expires_at).getTime() > Date.now() + TOKEN_EXPIRY_MARGIN_MS) {
+      return; // someone else already rotated while we waited for the lock
+    }
+
+    logger.info('Access token expired or near expiry — rotating before API call', { userId, endpoint });
+    const rotationResult = await rotateTokensForUser(tokens, config, supabase);
+    if (!rotationResult.success) {
+      throw rotationResult.error ?? new SchwabServiceError(
+        SchwabErrorCode.UNKNOWN_ERROR,
+        `Token rotation failed for user ${userId}`
+      );
+    }
+  })();
+
+  rotationLocks.set(userId, rotation);
+  try {
+    await rotation;
+  } finally {
+    rotationLocks.delete(userId);
+  }
+}
+
+/**
  * Generic fetch wrapper for Schwab Trader API endpoints.
  * Automatically handles:
  * - Bearer token injection
@@ -37,15 +81,9 @@ export async function fetchWithAuth(
 
   // Proactive rotation: never call Schwab with an expired/near-expiry access token,
   // otherwise the 401 handler would incorrectly mark the session as NEEDS_REAUTH.
+  // Serialized per user — see ensureFreshTokens.
   if (new Date(tokens.expires_at).getTime() <= Date.now() + TOKEN_EXPIRY_MARGIN_MS) {
-    logger.info('Access token expired or near expiry — rotating before API call', { userId, endpoint });
-    const rotation = await rotateTokensForUser(tokens, config, supabase);
-    if (!rotation.success) {
-      throw rotation.error ?? new SchwabServiceError(
-        SchwabErrorCode.UNKNOWN_ERROR,
-        `Token rotation failed for user ${userId}`
-      );
-    }
+    await ensureFreshTokens(supabase, userId, config, endpoint);
     tokens = await getTokensByUserId(supabase, userId);
     if (!tokens || tokens.status !== 'ACTIVE') {
       throw new SchwabServiceError(

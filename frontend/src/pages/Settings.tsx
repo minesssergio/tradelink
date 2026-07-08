@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { Link2, RefreshCw, Key, Layers } from 'lucide-react';
 import { useFilters } from '../context/FilterContext';
 import { LOT_METHOD_LABELS, type LotMethod } from '../lib/tradeEngine';
+import { invalidatePortfolioCache } from '../hooks/usePortfolioData';
 
 const LOT_METHOD_DESCRIPTIONS: Record<LotMethod, string> = {
   FIFO: 'Shares are sold in order of their purchase dates, from oldest to newest.',
@@ -102,7 +103,11 @@ export const Settings: React.FC = () => {
     setLoadingSync(true);
     try {
       const res = await api.triggerSync();
-      alert(`Sync successful! Processed ${res.transactionsProcessed} transactions.`);
+      invalidatePortfolioCache();
+      const skipped = res.skippedMissingTables?.length
+        ? `\n\nPendiente: aplicar migraciones para ${res.skippedMissingTables.join(', ')} (SQL Editor de Supabase).`
+        : '';
+      alert(`Sync successful! ${res.transactionsProcessed} transactions, ${res.positionsProcessed} positions, ${res.ordersProcessed ?? 0} orders.${skipped}`);
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Sync failed');

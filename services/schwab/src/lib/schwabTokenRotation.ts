@@ -181,8 +181,21 @@ export async function rotateTokensForUser(
       errorCode: schwabError.code,
     });
 
-    // If it was an invalid_grant, the refresh token is dead
     if (schwabError.code === SchwabErrorCode.AUTH_INVALID_GRANT) {
+      // Before declaring the session dead, check whether a CONCURRENT rotation
+      // (another request/process) already stored a newer refresh token — Schwab
+      // invalidates the old one on every rotation, so losing that race also
+      // surfaces as invalid_grant even though the session is fine.
+      const { getTokensByUserId } = await import('../db/tokenRepository.js');
+      const latest = await getTokensByUserId(client, user_id).catch(() => null);
+      if (latest && latest.refresh_token !== refresh_token && latest.status === 'ACTIVE') {
+        logger.info('Rotation lost a concurrent race — newer token already stored, session stays ACTIVE', {
+          userId: user_id,
+        });
+        return { success: true, userId: user_id, rotatedAt: latest.last_rotation_at ?? new Date().toISOString() };
+      }
+
+      // Genuinely dead refresh token
       await markSessionNeedsReauth(client, user_id);
     }
 

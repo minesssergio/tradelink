@@ -27,7 +27,7 @@ export function breakdownBy(trades: ClosedTrade[], keyFn: (t: ClosedTrade) => st
   }
 
   return Object.entries(groups).map(([key, ts]) => {
-    const wins = ts.filter(t => t.netPnL >= 0);
+    const wins = ts.filter(t => t.netPnL > 0);
     const losses = ts.filter(t => t.netPnL < 0);
     const totalWins = wins.reduce((s, t) => s + t.netPnL, 0);
     const totalLosses = Math.abs(losses.reduce((s, t) => s + t.netPnL, 0));
@@ -62,14 +62,17 @@ export function instrumentKind(t: ClosedTrade): string {
   return 'Stock / ETF';
 }
 
-const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// Market timezone: buckets must reflect New York hours regardless of the
+// browser's timezone (ET flips between UTC-4 and UTC-5 with DST).
+const NY_WEEKDAY = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'long' });
+const NY_HOUR = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' });
+
 export function weekdayOf(t: ClosedTrade): string {
-  return WEEKDAYS[new Date(t.closeDate).getDay()];
+  return NY_WEEKDAY.format(new Date(t.closeDate));
 }
 
 export function hourBucketOf(t: ClosedTrade): string {
-  const h = new Date(t.openDate).getHours();
-  return `${String(h).padStart(2, '0')}:00`;
+  return `${NY_HOUR.format(new Date(t.openDate))}:00 NY`;
 }
 
 export function durationBucketOf(t: ClosedTrade): string {
