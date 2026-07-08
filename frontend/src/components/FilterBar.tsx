@@ -3,6 +3,7 @@ import { Calendar as CalendarIcon, ChevronDown, Pencil, X, Landmark, RefreshCw }
 import { useFilters } from '../context/FilterContext';
 import { api } from '../lib/api';
 import { invalidatePortfolioCache } from '../hooks/usePortfolioData';
+import { DateInput } from './DateInput';
 
 const PRESETS: { label: string; days: number | 'ytd' }[] = [
   { label: '7D', days: 7 },
@@ -164,8 +165,7 @@ export const FilterBar: React.FC = () => {
       {/* Date range */}
       <div className="flex items-center gap-3" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <CalendarIcon size={15} style={{ color: 'var(--text-muted)' }} />
-        <input
-          type="date"
+        <DateInput
           className="input-glass"
           value={from || ''}
           max={to || undefined}
@@ -173,8 +173,7 @@ export const FilterBar: React.FC = () => {
           style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}
         />
         <span style={{ color: 'var(--text-muted)' }}>→</span>
-        <input
-          type="date"
+        <DateInput
           className="input-glass"
           value={to || ''}
           min={from || undefined}

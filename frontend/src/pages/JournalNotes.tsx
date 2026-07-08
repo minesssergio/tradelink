@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DateInput } from '../components/DateInput';
 
 interface JournalNote {
   id: string;
@@ -165,8 +166,7 @@ export const JournalNotes: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <input
-              type="date"
+            <DateInput
               className="input-glass"
               value={draft.note_date}
               onChange={(e) => setDraft({ ...draft, note_date: e.target.value })}

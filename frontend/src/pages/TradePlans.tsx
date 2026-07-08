@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, Pencil, Trash2, X, Save, AlertTriangle, ClipboardCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { DateInput } from '../components/DateInput';
 
 // Trade/Day plans live in journal_notes tagged 'plan' — same table, distinct view.
 const PLAN_TAG = 'plan';
@@ -143,8 +144,7 @@ export const TradePlans: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <input
-              type="date"
+            <DateInput
               className="input-glass"
               value={draft.note_date}
               onChange={(e) => setDraft({ ...draft, note_date: e.target.value })}
