@@ -38,6 +38,21 @@ app.use('/api/v1/portfolio', authMiddleware, portfolioRoutes);
 // Error Handling
 app.use(errorHandler);
 
+// Without these, an unhandled promise rejection or sync throw outside a
+// request handler kills the process with NO log line — it happened silently
+// mid-session (tsx watch's parent stayed alive, the actual server died, the
+// port went unbound, and nothing in the logs explained why). Log loudly and
+// exit deliberately so a supervisor (Task Scheduler, pm2, etc.) can restart
+// it and the cause is visible next time.
+process.on('uncaughtException', (err) => {
+  console.error('🔥 uncaughtException — API process is exiting:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('🔥 unhandledRejection — API process is exiting:', reason);
+  process.exit(1);
+});
+
 // On serverless platforms (Vercel) the platform invokes the exported app;
 // only bind a port when running as a standalone process.
 if (!process.env.VERCEL) {
