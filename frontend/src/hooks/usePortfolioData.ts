@@ -38,13 +38,15 @@ const friendlyError = (err: unknown) =>
  *   still pair correctly with exits inside it).
  */
 export function usePortfolioData() {
-  const { filterTransactions, filterTransactionsByAccount, filterTrades, getLotMethod } = useFilters();
+  const { filterTransactions, filterTransactionsByAccount, filterTrades, getLotMethod, dataVersion } = useFilters();
   const [rawTransactions, setRawTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     cachedTransactions()
       .then(data => {
         if (cancelled) return;
@@ -58,7 +60,7 @@ export function usePortfolioData() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [dataVersion]);
 
   const transactions = useMemo(
     () => filterTransactions(rawTransactions),
@@ -94,13 +96,15 @@ export interface AccountBalance {
  * KPI cards.
  */
 export function useLiveBalances() {
-  const { matchesAccount } = useFilters();
+  const { matchesAccount, dataVersion } = useFilters();
   const [rawBalances, setRawBalances] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     cachedBalances()
       .then(data => {
         if (cancelled) return;
@@ -114,7 +118,7 @@ export function useLiveBalances() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [dataVersion]);
 
   const balances = useMemo(
     () => rawBalances.filter(b => matchesAccount(b.account_hash)),
@@ -142,13 +146,15 @@ export function useLiveBalances() {
 
 /** Fetches open positions and filters them by the selected accounts. */
 export function useFilteredPositions() {
-  const { filterPositions } = useFilters();
+  const { filterPositions, dataVersion } = useFilters();
   const [rawPositions, setRawPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     cachedPositions()
       .then(data => {
         if (cancelled) return;
@@ -162,7 +168,7 @@ export function useFilteredPositions() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [dataVersion]);
 
   const positions = useMemo(() => filterPositions(rawPositions), [rawPositions, filterPositions]);
 

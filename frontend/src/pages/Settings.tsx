@@ -86,6 +86,7 @@ export const Settings: React.FC = () => {
   const [loadingSync, setLoadingSync] = useState(false);
   const [callbackUrl, setCallbackUrl] = useState('');
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const { bumpDataVersion } = useFilters();
 
   const handleConnect = async () => {
     setLoadingLink(true);
@@ -104,6 +105,7 @@ export const Settings: React.FC = () => {
     try {
       const res = await api.triggerSync();
       invalidatePortfolioCache();
+      bumpDataVersion();
       const skipped = res.skippedMissingTables?.length
         ? `\n\nPendiente: aplicar migraciones para ${res.skippedMissingTables.join(', ')} (SQL Editor de Supabase).`
         : '';

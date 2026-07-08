@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, ChevronDown, Pencil, X, Landmark } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, Pencil, X, Landmark, RefreshCw } from 'lucide-react';
 import { useFilters } from '../context/FilterContext';
+import { api } from '../lib/api';
+import { invalidatePortfolioCache } from '../hooks/usePortfolioData';
 
 const PRESETS: { label: string; days: number | 'ytd' }[] = [
   { label: '7D', days: 7 },
@@ -15,9 +17,29 @@ export const FilterBar: React.FC = () => {
   const {
     accounts, selected, setSelected, from, to, setRange,
     aliases, setAlias, accountLabel, isFiltering, clearFilters,
+    bumpDataVersion,
   } = useFilters();
 
   const [open, setOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await api.triggerSync();
+      invalidatePortfolioCache();
+      bumpDataVersion();
+      setSyncMsg(`✓ ${res.positionsProcessed} posiciones, ${res.transactionsProcessed} transacciones`);
+    } catch (err: any) {
+      console.error(err);
+      setSyncMsg(`✗ ${err?.message || 'Sync failed'}`);
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMsg(null), 8000);
+    }
+  };
   const [editingHash, setEditingHash] = useState<string | null>(null);
   const [aliasDraft, setAliasDraft] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -184,6 +206,25 @@ export const FilterBar: React.FC = () => {
           <X size={13} /> Clear filters
         </button>
       )}
+
+      {/* On-demand sync: pull fresh data from Schwab and refresh every page */}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        {syncMsg && (
+          <span style={{ fontSize: '0.75rem', color: syncMsg.startsWith('✓') ? 'var(--success)' : 'var(--danger)' }}>
+            {syncMsg}
+          </span>
+        )}
+        <button
+          className="btn btn-primary"
+          onClick={handleSync}
+          disabled={syncing}
+          title="Trae los datos actuales de Schwab (posiciones, transacciones, órdenes) y refresca la app"
+          style={{ padding: '0.45rem 0.9rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+        >
+          <RefreshCw size={14} className={syncing ? 'spinning' : ''} />
+          {syncing ? 'Syncing…' : 'Sync'}
+        </button>
+      </div>
     </div>
   );
 };

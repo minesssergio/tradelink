@@ -49,6 +49,15 @@ Guía para agentes de IA (y humanos) que hagan mejoras futuras sin romper lo con
   Trending_26 ···4886, Swing_26 ···5350, Spy_26 ···8936.
 - Los alias/filtros/método de lotes del frontend persisten en `localStorage` (claves `tradelink-*`).
 
+## Trampa conocida: artefactos .js junto a los .ts
+
+NUNCA debe haber archivos `.js` compilados dentro de `services/schwab/src/` (ni `services/api/src/`).
+Los imports usan especificadores `.js` (estilo ESM de TS); si existe un `.js` real en disco, tsx lo
+prefiere sobre el `.ts` y el servidor ejecuta CÓDIGO VIEJO silenciosamente (pasó el 2026-07-08: el
+endpoint /schwab/sync corría un ETL obsoleto). El build correcto emite a `dist/` (ver tsconfig).
+Si el comportamiento del API no coincide con el código, revisa esto primero:
+`Get-ChildItem -Recurse services\schwab\src -Filter *.js`
+
 ## Convenciones
 
 - Estilo UI: dark glassmorphism con clases `glass-card`, `btn`, `input-glass` (ver `frontend/src/index.css`).

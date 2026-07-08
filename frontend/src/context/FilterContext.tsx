@@ -24,6 +24,9 @@ interface FilterContextValue {
   /** True when any filter is active */
   isFiltering: boolean;
   clearFilters: () => void;
+  /** Bumped after a sync so data hooks refetch. */
+  dataVersion: number;
+  bumpDataVersion: () => void;
   /** Lot selection method (must mirror Schwab's per-account setting). */
   defaultLotMethod: LotMethod;
   setDefaultLotMethod: (m: LotMethod) => void;
@@ -100,6 +103,8 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [to, setTo] = useState<string | null>(persisted.to);
   const [aliases, setAliases] = useState<Record<string, string>>(loadAliases);
   const [lotConfig, setLotConfig] = useState(loadLotConfig);
+  const [dataVersion, setDataVersion] = useState(0);
+  const bumpDataVersion = useCallback(() => setDataVersion(v => v + 1), []);
 
   useEffect(() => {
     api.getAccounts()
@@ -198,6 +203,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     accounts, accountsLoading, selected, setSelected,
     from, to, setRange, aliases, setAlias, accountLabel,
     isFiltering, clearFilters,
+    dataVersion, bumpDataVersion,
     defaultLotMethod: lotConfig.default,
     setDefaultLotMethod,
     lotMethodOverrides: lotConfig.perAccount,
