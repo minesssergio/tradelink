@@ -35,7 +35,7 @@ Credenciales: copia `.env.example` → `.env` (raíz) y crea `frontend/.env.loca
 4. [docs/API_SPEC.md](docs/API_SPEC.md) — endpoints del API gateway
 5. [docs/SCHWAB_ETL.md](docs/SCHWAB_ETL.md) — OAuth, rotación de tokens y pipeline ETL
 6. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — despliegue a Vercel + Supabase
-7. [CLAUDE.md](CLAUDE.md) — guía para desarrollo asistido por IA sin romper invariantes
+7. [AGENTS.md](AGENTS.md) — guía para desarrollo asistido por IA sin romper invariantes (funciona con cualquier asistente; `CLAUDE.md` apunta aquí)
 
 ## Invariantes críticos (no romper)
 
@@ -45,6 +45,15 @@ Credenciales: copia `.env.example` → `.env` (raíz) y crea `frontend/.env.loca
 - **Tokens Schwab**: refresh proactivo antes de cada llamada; el refresh token rota en cada uso (nunca guardar/restaurar tokens viejos).
 - El trade engine usa **transactions** (no orders): orders no reporta precios de expiración ITM.
 
+## Testing y CI
+
+```bash
+cd frontend && npm test              # vitest --watch
+cd frontend && npm test -- --run     # una sola pasada (lo que corre CI)
+```
+
+`.github/workflows/ci.yml` corre typecheck + tests + build en cada push/PR a `main`.
+
 ## Git
 
 ```bash
@@ -53,3 +62,8 @@ git push -u origin main
 ```
 
 `.env`, dumps de cuentas, capturas personales (`Ejemplos/`) y scratch files están excluidos por `.gitignore` — nunca los fuerces al repo.
+
+## Mantener la app siempre activa (local)
+
+`scripts/install-autostart.ps1` registra una tarea de Windows que arranca API + frontend al iniciar sesión
+y los reinicia automáticamente si se caen. Ver [docs/ALWAYS_ON.md](docs/ALWAYS_ON.md).

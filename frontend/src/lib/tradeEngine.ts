@@ -155,7 +155,10 @@ export function buildTradeEngine(
         ? (exitPrice - entryPrice) * matchQty
         : (entryPrice - exitPrice) * matchQty) * exec.multiplier;
 
-      const tradeFees = (lot.fees * (matchQty / lot.quantity)) + (exec.fees * (matchQty / exec.quantity));
+      // Prorate each side's fee by the fraction of ITS OWN remaining quantity being matched.
+      const lotFeeShare = lot.fees * (matchQty / lot.quantity);
+      const execFeeShare = exec.fees * (matchQty / exec.quantity);
+      const tradeFees = lotFeeShare + execFeeShare;
 
       closedTrades.push({
         id: `${lot.id}-${exec.id}-${matchQty}`,
@@ -176,6 +179,10 @@ export function buildTradeEngine(
       });
 
       remainingToClose -= matchQty;
+      // Reduce the lot's remaining fee pool in step with its remaining quantity —
+      // otherwise a lot closed across multiple separate executions double-counts
+      // fees on the second+ close (the bug this fixes: 2026-07-08).
+      lot.fees -= lotFeeShare;
       lot.quantity -= matchQty;
 
       if (lot.quantity === 0) {

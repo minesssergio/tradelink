@@ -30,6 +30,7 @@ desktop.ini
 # Logs
 *.log
 npm-debug.log*
+logs/
 
 # Temp
 tmp/
