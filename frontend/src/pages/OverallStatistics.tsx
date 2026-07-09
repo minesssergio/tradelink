@@ -84,6 +84,19 @@ export const OverallStatistics: React.FC = () => {
               <span className="badge badge-danger">-{formatMoney(stats.avgLoss)}</span>
             </div>
             <div className="flex justify-between items-center">
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Avg Duration — Winners</span>
+              <span style={{ fontWeight: 600, color: 'var(--success)' }}>{fmtDuration(stats.avgWinDurationMs)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Avg Duration — Losers</span>
+              <span style={{
+                fontWeight: 600,
+                color: stats.avgLossDurationMs > stats.avgWinDurationMs * 1.3 ? 'var(--danger)' : 'var(--text-primary)',
+              }}>
+                {fmtDuration(stats.avgLossDurationMs)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
               <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Total Trades</span>
               <span style={{ fontWeight: 600 }}>{stats.totalTrades}</span>
             </div>

@@ -35,6 +35,7 @@ export const api = {
   getBalances: () => fetchWithAuth('/portfolio/balances'),
   getOrders: () => fetchWithAuth('/portfolio/orders'),
   getGrowth: () => fetchWithAuth('/portfolio/growth'),
+  getDateRange: () => fetchWithAuth('/portfolio/date-range'),
   getTransactions: (accountHash?: string) => {
     const q = accountHash ? `?accountHash=${encodeURIComponent(accountHash)}` : '';
     return fetchWithAuth(`/portfolio/transactions${q}`);

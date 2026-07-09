@@ -176,20 +176,11 @@ if (isMain) {
         logger.error('No active users found for sync');
         process.exit(1);
       }
-      // Find --start-date if provided
+      // --start-date is an optional manual override (e.g. forced resync of a
+      // specific range). Left unset, runSyncJob resolves an incremental start
+      // per account from what's already stored — see syncCursor.ts.
       const startDateIndex = args.indexOf('--start-date');
-      let startDateStr = null;
-      if (startDateIndex !== -1 && args[startDateIndex + 1]) {
-        startDateStr = args[startDateIndex + 1];
-      }
-
-      let startDate: Date;
-      if (startDateStr) {
-        startDate = new Date(startDateStr);
-      } else {
-        startDate = new Date();
-        startDate.setDate(startDate.getDate() - 90);
-      }
+      const startDateStr = (startDateIndex !== -1 && args[startDateIndex + 1]) ? args[startDateIndex + 1] : undefined;
 
       const { runSyncJob } = await import('./etl/syncService.js');
       const results = [];
@@ -198,8 +189,8 @@ if (isMain) {
           supabase,
           row.user_id,
           config,
-          startDate.toISOString(),
-          new Date().toISOString()
+          startDateStr,
+          undefined
         );
         results.push(result);
       }

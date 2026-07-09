@@ -47,3 +47,6 @@ Ejemplos/
 # Compiled JS next to TS sources (build artifacts)
 services/schwab/src/**/*.js
 services/api/dist/
+
+# Supabase CLI local state (project ref, pooler URL, tool versions)
+supabase/.temp/

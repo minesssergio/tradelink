@@ -27,6 +27,8 @@ interface FilterContextValue {
   /** Bumped after a sync so data hooks refetch. */
   dataVersion: number;
   bumpDataVersion: () => void;
+  /** Earliest/latest transaction date across the user's data (for the "ALL" date preset). Null while loading. */
+  dataDateRange: { min: string | null; max: string | null };
   /** Lot selection method (must mirror Schwab's per-account setting). */
   defaultLotMethod: LotMethod;
   setDefaultLotMethod: (m: LotMethod) => void;
@@ -105,6 +107,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [lotConfig, setLotConfig] = useState(loadLotConfig);
   const [dataVersion, setDataVersion] = useState(0);
   const bumpDataVersion = useCallback(() => setDataVersion(v => v + 1), []);
+  const [dataDateRange, setDataDateRange] = useState<{ min: string | null; max: string | null }>({ min: null, max: null });
 
   useEffect(() => {
     api.getAccounts()
@@ -120,6 +123,13 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setAccountsLoading(false);
       });
   }, []);
+
+  // Refetch on dataVersion bump too — a sync can extend the latest available date.
+  useEffect(() => {
+    api.getDateRange()
+      .then(res => setDataDateRange({ min: res.data?.minDate ?? null, max: res.data?.maxDate ?? null }))
+      .catch(err => console.error('FilterContext: failed to load date range', err));
+  }, [dataVersion]);
 
   useEffect(() => {
     localStorage.setItem(LS_KEY, JSON.stringify({ selected, from, to }));
@@ -203,7 +213,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     accounts, accountsLoading, selected, setSelected,
     from, to, setRange, aliases, setAlias, accountLabel,
     isFiltering, clearFilters,
-    dataVersion, bumpDataVersion,
+    dataVersion, bumpDataVersion, dataDateRange,
     defaultLotMethod: lotConfig.default,
     setDefaultLotMethod,
     lotMethodOverrides: lotConfig.perAccount,

@@ -57,7 +57,7 @@ cd frontend && npm test -- --run     # una sola pasada (lo que corre CI)
 ## Git
 
 ```bash
-git remote add origin https://github.com/<tu-usuario>/tradelink.git
+git remote add origin https://github.com/minesssergio/tradelink.git
 git push -u origin main
 ```
 

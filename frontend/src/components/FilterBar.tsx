@@ -18,7 +18,7 @@ export const FilterBar: React.FC = () => {
   const {
     accounts, selected, setSelected, from, to, setRange,
     aliases, setAlias, accountLabel, isFiltering, clearFilters,
-    bumpDataVersion,
+    bumpDataVersion, dataDateRange,
   } = useFilters();
 
   const [open, setOpen] = useState(false);
@@ -184,6 +184,15 @@ export const FilterBar: React.FC = () => {
 
       {/* Presets */}
       <div style={{ display: 'flex', gap: '0.35rem' }}>
+        <button
+          className="btn btn-glass"
+          onClick={() => setRange(dataDateRange.min, dataDateRange.max)}
+          disabled={!dataDateRange.min || !dataDateRange.max}
+          title={dataDateRange.min ? `Todo el historial disponible: ${dataDateRange.min} → ${dataDateRange.max}` : 'Cargando rango disponible…'}
+          style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}
+        >
+          ALL
+        </button>
         {PRESETS.map(p => (
           <button
             key={p.label}

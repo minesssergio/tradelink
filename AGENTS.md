@@ -36,16 +36,22 @@ Guía para **cualquier asistente de IA** (Claude Code, Cursor, Copilot, Codeium,
 | Refresh proactivo de tokens | `services/schwab/src/lib/schwabApi.ts` | Un 401 marca la sesión NEEDS_REAUTH y desconecta a Schwab |
 | Trade engine usa transactions, no orders | ETL + frontend | El endpoint de orders no reporta precios de expiración ITM ni movimientos de cash |
 | Paginación completa de transacciones | `portfolio.controller.ts` (sin `limit` → todo el historial) | El motor FIFO necesita todas las transacciones para emparejar |
+| Sync incremental por cuenta | `services/schwab/src/etl/syncCursor.ts` | Cada sync parte del `MAX(time)`/`MAX(entered_time)` ya guardado, no de una ventana fija — así la BD acumula historia para siempre sin depender de la retención de Schwab. No reintroducir un default de "últimos N días" en los call sites (API/CLI) |
 | `dataVersion` en `FilterContext` | `FilterContext.tsx` + `usePortfolioData.ts` | El botón Sync incrementa esta versión para forzar refetch; si un hook nuevo no la observa, quedará mostrando datos viejos tras sincronizar |
 
 ## Testing
 
 - `frontend/src/lib/tradeEngine.test.ts` (Vitest) cubre: cada método de lotes (FIFO/LIFO/HIGH_COST/LOW_COST),
   multiplicador de opciones, expiraciones como cierre, aislamiento de lotes por cuenta, prorrateo de fees,
-  reversión de posición (long→short en la misma ejecución) y `calculateStats`.
-- Correr: `cd frontend && npm test` (watch) o `npm test -- --run` (una vez, para CI).
-- Al día de hoy `services/api` y `services/schwab` no tienen tests — son I/O-heavy (HTTP, Supabase); si les
-  agregas lógica pura nueva, sepárala en una función testeable e inyecta las dependencias externas (regla 6 de `RULES.md`).
+  reversión de posición (long→short en la misma ejecución) y `calculateStats` (incluye duración
+  promedio ganadoras/perdedoras, rachas, expectancy).
+- `frontend/src/lib/analytics.test.ts` (Vitest) cubre `breakdownBy`, `underlyingOf`/`instrumentKind`,
+  `durationBucketOf`, `advancedStats` y `rollingWinRate` — el motor detrás de Breakdowns/Insights/Win-Rate Charts.
+- `services/schwab/src/etl/syncCursor.test.ts` (Vitest) cubre las funciones puras del cursor incremental
+  (`resolveIncrementalStart`, `chunkDateRange`).
+- Correr: `npm test` (watch) o `npm test -- --run` (una vez, para CI) en `frontend/` o `services/schwab/`.
+- `services/api` no tiene tests aún — es I/O-heavy (HTTP, Supabase); si le agregas lógica pura nueva,
+  sepárala en una función testeable e inyecta las dependencias externas (regla 6 de `RULES.md`).
 
 ## CI
 
@@ -79,6 +85,18 @@ Si el comportamiento del API no coincide con el código, revisa esto primero:
 ```bash
 Get-ChildItem -Recurse services\schwab\src -Filter *.js   # PowerShell
 ```
+
+## Motor de analítica (breakdowns / insights)
+
+`frontend/src/lib/analytics.ts` es el módulo CANÓNICO para desgloses por dimensión (símbolo, día,
+hora, duración, tipo de instrumento) y hallazgos automáticos — usado por `Breakdowns.tsx`, `Insights.tsx`
+y `WinRateCharts.tsx`. Provee `breakdownBy`, `underlyingOf`/`instrumentKind` (parsing de símbolos OCC),
+`weekdayOf`/`hourBucketOf` (NY timezone-aware), `durationBucketOf`/`DURATION_ORDER`, `WEEKDAY_ORDER`,
+`advancedStats` (expectancy, streaks, fee drag) y `generateInsights` (revenge trading, sobreoperación,
+peor subyacente/día). **No crear un segundo módulo de analítica** — si necesitas un nuevo breakdown,
+agrega una función aquí reutilizando `breakdownBy`. `calculateStats` en `tradeEngine.ts` es deliberadamente
+más liviano (KPIs básicos colocados con el motor de matching); su solape parcial con `advancedStats` es
+intencional, no un bug a corregir.
 
 ## Convenciones
 

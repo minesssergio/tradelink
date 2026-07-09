@@ -35,20 +35,14 @@ export const handleCallback = async (req: Request, res: Response, next: NextFunc
 
 export const triggerSync = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { startDate } = req.body;
+    // startDate/endDate are optional manual overrides (e.g. a forced resync of
+    // a specific range). Left unset, runSyncJob resolves an incremental start
+    // per account from what's already stored — see syncCursor.ts.
+    const { startDate, endDate } = req.body;
     const userId = req.user!.id;
     const config = loadSchwabConfig();
-    
-    let start = startDate;
-    if (!start) {
-      const d = new Date();
-      d.setDate(d.getDate() - 90);
-      start = d.toISOString();
-    }
-    
-    const end = new Date().toISOString();
-    
-    const result = await runSyncJob(supabase, userId, config, start, end);
+
+    const result = await runSyncJob(supabase, userId, config, startDate, endDate);
     
     if (!result.success) {
       return res.status(500).json({ error: 'Sync failed', details: result.error });

@@ -27,6 +27,10 @@ jobs:
         working-directory: services/schwab
         run: npx tsc --noEmit
 
+      - name: Run schwab service tests
+        working-directory: services/schwab
+        run: npm test -- --run
+
       - name: Install API gateway
         working-directory: services/api
         run: npm ci

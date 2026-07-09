@@ -208,6 +208,50 @@ export function buildTradeEngine(
   };
 }
 
+interface StreakInfo {
+  /** Longest run of consecutive winning trades (by count), in chronological order. */
+  longestWinStreak: number;
+  /** Longest run of consecutive losing trades (by count). */
+  longestLossStreak: number;
+  /** Most recent streak: positive = N wins in a row, negative = N losses in a row, 0 = none/last trade breakeven. */
+  currentStreak: number;
+  /** Total $ lost during the single worst consecutive-loss run (most negative sum; 0 if no losses). */
+  worstLossStreakAmount: number;
+}
+
+/** Walks trades in chronological order to find win/loss streaks. Breakeven trades (netPnL === 0) break any streak. */
+function computeStreaks(chronological: ClosedTrade[]): StreakInfo {
+  let longestWinStreak = 0;
+  let longestLossStreak = 0;
+  let curType: 'win' | 'loss' | null = null;
+  let curCount = 0;
+  let curLossPnL = 0;
+  let worstLossStreakAmount = 0;
+
+  for (const t of chronological) {
+    const type: 'win' | 'loss' | null = t.netPnL > 0 ? 'win' : t.netPnL < 0 ? 'loss' : null;
+
+    if (type === curType && type !== null) {
+      curCount++;
+      if (type === 'loss') curLossPnL += t.netPnL;
+    } else {
+      curType = type;
+      curCount = type === null ? 0 : 1;
+      curLossPnL = type === 'loss' ? t.netPnL : 0;
+    }
+
+    if (curType === 'win') longestWinStreak = Math.max(longestWinStreak, curCount);
+    if (curType === 'loss') {
+      longestLossStreak = Math.max(longestLossStreak, curCount);
+      worstLossStreakAmount = Math.min(worstLossStreakAmount, curLossPnL);
+    }
+  }
+
+  const currentStreak = curType === 'win' ? curCount : curType === 'loss' ? -curCount : 0;
+
+  return { longestWinStreak, longestLossStreak, currentStreak, worstLossStreakAmount };
+}
+
 // Helper to calculate statistics.
 // Convention (used across the whole app): a trade is a WIN if netPnL > 0,
 // a LOSS if netPnL < 0; breakeven trades count in totals but in neither side.
@@ -224,17 +268,45 @@ export function calculateStats(trades: ClosedTrade[]) {
   const totalLossPnL = Math.abs(losingTrades.reduce((acc, t) => acc + t.netPnL, 0));
 
   const profitFactor = totalLossPnL === 0 ? totalWinsPnL : (totalWinsPnL / totalLossPnL);
+  const winRate = (winningTrades.length / trades.length) * 100;
+  const avgWin = winningTrades.length > 0 ? (totalWinsPnL / winningTrades.length) : 0;
+  const avgLoss = losingTrades.length > 0 ? (totalLossPnL / losingTrades.length) : 0;
+
+  // Holding-time diagnostics: comparing avgWinDurationMs vs avgLossDurationMs
+  // is a classic tell — holding losers far longer than winners usually means
+  // not cutting losses fast enough.
+  const avgDurationMs = trades.reduce((acc, t) => acc + t.durationMs, 0) / trades.length;
+  const avgWinDurationMs = winningTrades.length > 0
+    ? winningTrades.reduce((acc, t) => acc + t.durationMs, 0) / winningTrades.length
+    : 0;
+  const avgLossDurationMs = losingTrades.length > 0
+    ? losingTrades.reduce((acc, t) => acc + t.durationMs, 0) / losingTrades.length
+    : 0;
+
+  // Expectancy: textbook $ per trade from win-rate and average win/loss size,
+  // as distinct from the raw avgTrade (they diverge slightly with breakeven trades).
+  const winRateFrac = winningTrades.length / trades.length;
+  const lossRateFrac = losingTrades.length / trades.length;
+  const expectancy = (winRateFrac * avgWin) - (lossRateFrac * avgLoss);
+
+  const chronological = [...trades].sort((a, b) => new Date(a.closeDate).getTime() - new Date(b.closeDate).getTime());
+  const streaks = computeStreaks(chronological);
 
   return {
     totalTrades: trades.length,
-    winRate: (winningTrades.length / trades.length) * 100,
+    winRate,
     profitFactor,
     grossPnL,
     netPnL,
     avgTrade: netPnL / trades.length,
-    avgWin: winningTrades.length > 0 ? (totalWinsPnL / winningTrades.length) : 0,
-    avgLoss: losingTrades.length > 0 ? (totalLossPnL / losingTrades.length) : 0,
+    avgWin,
+    avgLoss,
     bestTrade: Math.max(...trades.map(t => t.netPnL)),
     worstTrade: Math.min(...trades.map(t => t.netPnL)),
+    avgDurationMs,
+    avgWinDurationMs,
+    avgLossDurationMs,
+    expectancy,
+    ...streaks,
   };
 }

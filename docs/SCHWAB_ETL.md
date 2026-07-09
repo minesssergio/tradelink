@@ -80,6 +80,23 @@ Cron → Lee tokens de Supabase
 
 Además del cron, `fetchWithAuth` (lib/schwabApi.ts) verifica **antes de cada llamada** a la Trader API si el access_token expira en < 60 segundos, y en ese caso rota los tokens en línea (`rotateTokensForUser`). Esto evita que una llamada con token vencido reciba 401 y marque la sesión como `NEEDS_REAUTH` incorrectamente.
 
+### 3.4.0 Sync Incremental (evita re-fetch de historia completa)
+
+Cada cuenta usa su propio cursor: `resolveIncrementalStart` (`services/schwab/src/etl/syncCursor.ts`)
+toma el `MAX(time)` ya guardado en `schwab_transactions` (o `MAX(entered_time)` en `schwab_orders`) como
+punto de partida, con un pequeño solape hacia atrás para capturar liquidaciones/cambios de estado tardíos:
+
+- **Transacciones**: solape de 3 días.
+- **Órdenes**: solape de 7 días (una orden WORKING de hace días puede pasar a FILLED sin que cambie su `entered_time`).
+- **Primera vez sin datos**: backfill de 730 días (~2 años), trozado en ventanas de 180 días
+  (`chunkDateRange`) por si Schwab limita el rango por llamada.
+
+Esto es clave para retención a largo plazo: la base de datos **nunca borra** transacciones/órdenes, así
+que una vez guardado un dato queda para siempre — el sync solo necesita traer lo nuevo desde la última
+vez, sin importar cuánta historia retenga Schwab en su propia API. Pasar `startDate`/`endDate` explícitos
+(CLI `--start-date`, o el body de `POST /schwab/sync`) sigue funcionando como resync manual de un rango
+específico, ignorando el cursor incremental para esa corrida.
+
 ### 3.4.1 Semántica de Snapshot en Posiciones
 
 `schwab_positions` es un **snapshot** de las posiciones actuales: en cada sync se upsertan las posiciones vigentes y se **eliminan las filas obsoletas** (posiciones cerradas desde el último sync) vía `deleteStalePositions`. Sin esto, las posiciones cerradas quedarían en la tabla para siempre.

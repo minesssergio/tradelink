@@ -87,6 +87,8 @@ export function durationBucketOf(t: ClosedTrade): string {
 
 export const DURATION_ORDER = ['< 5 min', '5–30 min', '30 min – 2 h', '2 h – 1 día', '1 – 7 días', '> 7 días'];
 
+export const WEEKDAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 // ============================================================================
 // Advanced stats
 // ============================================================================
@@ -164,6 +166,22 @@ export function advancedStats(trades: ClosedTrade[]): AdvancedStats | null {
     totalLosses: losses.length,
     breakevenTrades: breakeven,
   };
+}
+
+/** Rolling win rate over the trailing `windowSize` trades (chronological) — a trend line for "am I improving?". */
+export function rollingWinRate(trades: ClosedTrade[], windowSize = 20): Array<{ date: string; winRate: number }> {
+  const chronological = [...trades].sort((a, b) => new Date(a.closeDate).getTime() - new Date(b.closeDate).getTime());
+  const points: Array<{ date: string; winRate: number }> = [];
+
+  for (let i = windowSize - 1; i < chronological.length; i++) {
+    const window = chronological.slice(i - windowSize + 1, i + 1);
+    const wins = window.filter(t => t.netPnL > 0).length;
+    points.push({
+      date: chronological[i]!.closeDate.slice(0, 10),
+      winRate: (wins / windowSize) * 100,
+    });
+  }
+  return points;
 }
 
 // ============================================================================

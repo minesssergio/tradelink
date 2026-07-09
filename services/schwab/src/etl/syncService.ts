@@ -4,6 +4,14 @@ import { logger } from '../lib/logger.js';
 import { extractAccountsAndPositions, extractTransactions, extractOrders } from './dataExtractor.js';
 import { transformAccount, transformPositions, transformTransactions, transformOrders, transformBalanceSnapshot } from './dataTransformer.js';
 import { upsertAccount, upsertPositions, insertTransactions, deleteStalePositions, upsertOrders, upsertBalanceSnapshot } from './etlLoader.js';
+import {
+  resolveIncrementalStart,
+  chunkDateRange,
+  getLastTransactionTime,
+  getLastOrderTime,
+  TRANSACTION_OVERLAP_DAYS,
+  ORDER_OVERLAP_DAYS,
+} from './syncCursor.js';
 
 export interface SyncResult {
   userId: string;
@@ -64,32 +72,42 @@ export async function runSyncJob(
       );
       result.positionsProcessed += positions.length;
 
-      // 4. EXTRACT: Transactions
-      const rawTransactions = await extractTransactions(
-        supabase, 
-        userId, 
-        config, 
-        account.account_hash,
-        startDate,
-        endDate
+      // 4. EXTRACT: Transactions — incremental per account (own cursor + overlap)
+      // unless the caller passed an explicit range (manual resync).
+      const txEnd = endDate ?? new Date().toISOString();
+      const txStart = startDate ?? resolveIncrementalStart(
+        await getLastTransactionTime(supabase, account.account_hash),
+        TRANSACTION_OVERLAP_DAYS
       );
 
-      // 5. TRANSFORM & LOAD: Transactions
-      if (rawTransactions && Array.isArray(rawTransactions)) {
+      const rawTransactions: any[] = [];
+      for (const [chunkStart, chunkEnd] of chunkDateRange(txStart, txEnd)) {
+        const chunk = await extractTransactions(supabase, userId, config, account.account_hash, chunkStart, chunkEnd);
+        if (Array.isArray(chunk)) rawTransactions.push(...chunk);
+      }
+
+      // 5. TRANSFORM & LOAD: Transactions (upsert with ignoreDuplicates — safe to
+      // re-fetch the overlap window, already-stored activity_ids are skipped)
+      if (rawTransactions.length > 0) {
         const transactions = transformTransactions(userId, account.account_hash, rawTransactions);
         await insertTransactions(supabase, transactions);
         result.transactionsProcessed += transactions.length;
       }
 
-      // 6. EXTRACT + LOAD: Orders (second data stream)
-      const rawOrders = await extractOrders(
-        supabase,
-        userId,
-        config,
-        account.account_hash,
-        startDate ?? new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString(),
-        endDate ?? new Date().toISOString()
+      // 6. EXTRACT + LOAD: Orders (second data stream) — own cursor + wider
+      // overlap, since a WORKING order entered days ago can still transition
+      // to FILLED/CANCELED without its entered_time changing.
+      const orderEnd = endDate ?? new Date().toISOString();
+      const orderStart = startDate ?? resolveIncrementalStart(
+        await getLastOrderTime(supabase, account.account_hash),
+        ORDER_OVERLAP_DAYS
       );
+
+      const rawOrders: any[] = [];
+      for (const [chunkStart, chunkEnd] of chunkDateRange(orderStart, orderEnd)) {
+        const chunk = await extractOrders(supabase, userId, config, account.account_hash, chunkStart, chunkEnd);
+        if (Array.isArray(chunk)) rawOrders.push(...chunk);
+      }
       const orders = transformOrders(userId, account.account_hash, rawOrders);
       const ordersOk = await upsertOrders(supabase, orders);
       if (ordersOk) {

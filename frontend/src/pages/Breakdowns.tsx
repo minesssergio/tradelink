@@ -3,13 +3,11 @@ import { usePortfolioData } from '../hooks/usePortfolioData';
 import { useFilters } from '../context/FilterContext';
 import {
   breakdownBy, underlyingOf, instrumentKind, weekdayOf, hourBucketOf, durationBucketOf,
-  DURATION_ORDER, type BreakdownRow,
+  DURATION_ORDER, WEEKDAY_ORDER, type BreakdownRow,
 } from '../lib/analytics';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 type Dimension = 'underlying' | 'kind' | 'weekday' | 'hour' | 'duration' | 'side' | 'account';
-
-const WEEKDAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export const Breakdowns: React.FC = () => {
   const { closedTrades, loading, error } = usePortfolioData();

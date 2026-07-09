@@ -279,4 +279,82 @@ describe('calculateStats', () => {
     expect(stats.profitFactor).toBeCloseTo(100, 6);
     expect(Number.isFinite(stats.profitFactor)).toBe(true);
   });
+
+  it('computes average holding duration overall and split by win/loss', () => {
+    const txs = [
+      // Win held 2 hours
+      trade({ time: '2026-01-01T10:00:00Z', symbol: 'A', amount: 10, price: 10 }),
+      trade({ time: '2026-01-01T12:00:00Z', symbol: 'A', amount: -10, price: 20 }),
+      // Loss held 30 minutes (cut fast) — realistic pattern is the opposite, but the math must reflect input as-is
+      trade({ time: '2026-01-02T10:00:00Z', symbol: 'B', amount: 10, price: 10 }),
+      trade({ time: '2026-01-02T10:30:00Z', symbol: 'B', amount: -10, price: 5 }),
+    ];
+    const { closedTrades } = buildTradeEngine(txs, fifo);
+    const stats = calculateStats(closedTrades)!;
+
+    const HOUR = 3600_000;
+    expect(stats.avgWinDurationMs).toBeCloseTo(2 * HOUR, -2);
+    expect(stats.avgLossDurationMs).toBeCloseTo(0.5 * HOUR, -2);
+    expect(stats.avgDurationMs).toBeCloseTo((2 * HOUR + 0.5 * HOUR) / 2, -2);
+  });
+
+  it('computes expectancy from win-rate and average win/loss size', () => {
+    // 1 win of +$99, 1 loss of -$51 (same fixture as the win-rate test above)
+    const txs = [
+      trade({ time: '2026-01-01T10:00:00Z', symbol: 'A', amount: 10, price: 10, fee: 0.5 }),
+      trade({ time: '2026-01-01T11:00:00Z', symbol: 'A', amount: -10, price: 20, fee: 0.5 }),
+      trade({ time: '2026-01-02T10:00:00Z', symbol: 'B', amount: 10, price: 10, fee: 0.5 }),
+      trade({ time: '2026-01-02T11:00:00Z', symbol: 'B', amount: -10, price: 5, fee: 0.5 }),
+    ];
+    const { closedTrades } = buildTradeEngine(txs, fifo);
+    const stats = calculateStats(closedTrades)!;
+    // expectancy = winRate*avgWin - lossRate*avgLoss = 0.5*99 - 0.5*51 = 24
+    expect(stats.expectancy).toBeCloseTo(0.5 * 99 - 0.5 * 51, 6);
+  });
+
+  it('tracks win/loss streaks and the current streak in chronological order', () => {
+    // Chronological: W, W, L, L, L, W  -> longest win streak 2, longest loss streak 3, current streak +1
+    const txs = ['W', 'W', 'L', 'L', 'L', 'W'].flatMap((outcome, i) => {
+      const day = `2026-01-${String(i + 1).padStart(2, '0')}`;
+      const entry = trade({ time: `${day}T10:00:00Z`, symbol: `T${i}`, amount: 10, price: 10 });
+      const exitPrice = outcome === 'W' ? 20 : 5; // win or loss
+      const exit = trade({ time: `${day}T11:00:00Z`, symbol: `T${i}`, amount: -10, price: exitPrice });
+      return [entry, exit];
+    });
+    const { closedTrades } = buildTradeEngine(txs, fifo);
+    const stats = calculateStats(closedTrades)!;
+
+    expect(stats.longestWinStreak).toBe(2);
+    expect(stats.longestLossStreak).toBe(3);
+    expect(stats.currentStreak).toBe(1); // last trade was a win, streak of 1
+  });
+
+  it('computes the worst consecutive-loss streak dollar amount', () => {
+    // Two losses in a row: -$20, then -$30 -> worst streak = -$50
+    const txs = [
+      trade({ time: '2026-01-01T10:00:00Z', symbol: 'A', amount: 10, price: 10 }),
+      trade({ time: '2026-01-01T11:00:00Z', symbol: 'A', amount: -10, price: 8 }), // -$20
+      trade({ time: '2026-01-02T10:00:00Z', symbol: 'B', amount: 10, price: 10 }),
+      trade({ time: '2026-01-02T11:00:00Z', symbol: 'B', amount: -10, price: 7 }), // -$30
+    ];
+    const { closedTrades } = buildTradeEngine(txs, fifo);
+    const stats = calculateStats(closedTrades)!;
+    expect(stats.worstLossStreakAmount).toBeCloseTo(-50, 6);
+  });
+
+  it('a breakeven trade breaks a streak without counting as a win or a loss', () => {
+    const txs = [
+      trade({ time: '2026-01-01T10:00:00Z', symbol: 'A', amount: 10, price: 10 }),
+      trade({ time: '2026-01-01T11:00:00Z', symbol: 'A', amount: -10, price: 20 }), // win
+      trade({ time: '2026-01-02T10:00:00Z', symbol: 'B', amount: 10, price: 10 }),
+      trade({ time: '2026-01-02T11:00:00Z', symbol: 'B', amount: -10, price: 10 }), // breakeven, no fees
+      trade({ time: '2026-01-03T10:00:00Z', symbol: 'C', amount: 10, price: 10 }),
+      trade({ time: '2026-01-03T11:00:00Z', symbol: 'C', amount: -10, price: 20 }), // win
+    ];
+    const { closedTrades } = buildTradeEngine(txs, fifo);
+    const stats = calculateStats(closedTrades)!;
+    // The breakeven trade in the middle resets the streak, so longest win streak is 1, not 3.
+    expect(stats.longestWinStreak).toBe(1);
+    expect(stats.currentStreak).toBe(1);
+  });
 });

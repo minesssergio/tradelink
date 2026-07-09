@@ -189,6 +189,35 @@ export const getGrowth = async (req: Request, res: Response, next: NextFunction)
   }
 };
 
+/**
+ * Earliest/latest transaction date across all of the user's visible accounts —
+ * lets the frontend offer an "ALL" date-range preset that reflects the actual
+ * maximum history available, instead of guessing a fixed lookback window.
+ */
+export const getDateRange = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const hashes = await getUserAccountHashes(req.user!.id);
+    if (hashes.length === 0) return res.json({ data: { minDate: null, maxDate: null } });
+
+    const [minRes, maxRes] = await Promise.all([
+      getServiceClient().from('schwab_transactions').select('time').in('account_hash', hashes).order('time', { ascending: true }).limit(1),
+      getServiceClient().from('schwab_transactions').select('time').in('account_hash', hashes).order('time', { ascending: false }).limit(1),
+    ]);
+    if (minRes.error) throw minRes.error;
+    if (maxRes.error) throw maxRes.error;
+
+    res.json({
+      data: {
+        minDate: minRes.data?.[0]?.time ? String(minRes.data[0].time).slice(0, 10) : null,
+        maxDate: maxRes.data?.[0]?.time ? String(maxRes.data[0].time).slice(0, 10) : null,
+      },
+    });
+  } catch (err) {
+    console.error('[API] getDateRange error:', err);
+    next(err);
+  }
+};
+
 export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { accountHash, type, limit, offset = 0 } = req.query;

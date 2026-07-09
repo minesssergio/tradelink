@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAccounts, getPositions, getTransactions, getBalances, getOrders, getGrowth } from '../controllers/portfolio.controller.js';
+import { getAccounts, getPositions, getTransactions, getBalances, getOrders, getGrowth, getDateRange } from '../controllers/portfolio.controller.js';
 
 const router = Router();
 
@@ -9,5 +9,6 @@ router.get('/transactions', getTransactions);
 router.get('/balances', getBalances);
 router.get('/orders', getOrders);
 router.get('/growth', getGrowth);
+router.get('/date-range', getDateRange);
 
 export default router;
