@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Activity, LayoutDashboard, List, Calendar as CalendarIcon,
-  BookOpen, BarChart2, MessageSquare, Download, Plus,
+  BookOpen, BarChart2, MessageSquare,
   Settings, LogOut, ChevronDown, ChevronRight, Wallet, FileText, ClipboardList
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -92,15 +92,6 @@ export const Sidebar: React.FC = () => {
           <MessageSquare size={18} />
           <span>Insights</span>
         </NavLink>
-
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', padding: '0 0.5rem' }}>
-          <button className="btn btn-glass" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem' }}>
-            <Download size={16} /> Import
-          </button>
-          <button className="btn btn-glass" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem' }}>
-            <Plus size={16} /> Add Trade
-          </button>
-        </div>
 
         <div style={{ flex: 1, minHeight: '2rem' }} />
         

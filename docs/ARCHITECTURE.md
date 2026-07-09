@@ -73,9 +73,9 @@ Trading Journal Web es una aplicación multi-tenant para traders que operan en C
 | **Fase 1** | Motor OAuth 2.0 + Rotación de Tokens | ✅ Terminado |
 | **Fase 2** | ETL: Sync de trades y posiciones | ✅ Terminado |
 | **Fase 3** | Dashboard + Analytics (Backend API) | ✅ Terminado |
-| **Fase 4** | Journal + Notas + Screenshots | 🔨 Notas CRUD listo (migración 003 pendiente de aplicar) |
-| **Fase 5** | Reports + Métricas avanzadas | ✅ Reports + filtros globales + equity/drawdown + Account Growth |
-| **Fase 5b** | Orders stream + snapshots de balance | ✅ Código listo (migraciones 004/005 pendientes de aplicar) |
+| **Fase 4** | Journal + Notas + Screenshots | ✅ Notas CRUD (migración 003 aplicada) |
+| **Fase 5** | Reports + Métricas avanzadas | ✅ Reports + filtros globales + equity/drawdown + Account Growth + Breakdowns/Insights |
+| **Fase 5b** | Orders stream + snapshots de balance | ✅ Migraciones 004/005 aplicadas, sync incremental activo |
 | **Fase 6** | Despliegue web (Vercel + Supabase) | 🔨 Preparado (ver `DEPLOYMENT.md`) |
 
 ## 5.1 Filtros Globales del Frontend (cuenta + fechas)

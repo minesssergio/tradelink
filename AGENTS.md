@@ -62,10 +62,11 @@ Guía para **cualquier asistente de IA** (Claude Code, Cursor, Copilot, Codeium,
 
 - No hay acceso DDL desde el entorno local (solo service_role = DML). Las migraciones nuevas
   van a `supabase/migrations/` y se aplican A MANO en el SQL Editor del Dashboard.
-- Aplicadas: 001, 002. **Pendientes: 003 (journal_notes), 004 (schwab_orders), 005 (balance_snapshots)** —
-  la app degrada elegante mientras tanto (avisos de setup en las páginas; el sync salta esos pasos
-  y los reporta en `skippedMissingTables`). Ver `supabase/migrations/APPLY_PENDING.sql` para aplicarlas
-  las tres de una vez.
+- **Todas aplicadas (001–005)**, vía Supabase CLI (`supabase login --token ... && supabase link --project-ref
+  zjnkohzrgrwmezsmihfv && supabase db push`) el 2026-07-09. Si en el futuro se agregan migraciones nuevas,
+  repetir `supabase db push` (login/link solo la primera vez); el mecanismo de degradación elegante
+  (`skippedMissingTables`, avisos de setup en las páginas) sigue ahí por si alguna migración nueva
+  queda pendiente.
 - Usuarios en Auth: `sergioferrufino@gmail.com` (real, token ACTIVE) y `admin@tradingjournal.local`
   (artefacto de pruebas, NEEDS_REAUTH; sus transacciones son visibles para el usuario real por account-hash).
 
