@@ -1,7 +1,13 @@
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
+import helmetImport from 'helmet';
 import dotenv from 'dotenv';
+
+// helmet@8's .d.cts uses `export {helmet as default}` instead of `export =`,
+// which some NodeNext module-resolution passes (observed: full `tsc` build,
+// but not `tsc --noEmit`) fail to recognize as callable. The runtime value is
+// always correct either way; only the static type is ambiguous.
+const helmet = helmetImport as unknown as () => express.RequestHandler;
 import path from 'path';
 import { fileURLToPath } from 'url';
 

@@ -50,3 +50,6 @@ services/api/dist/
 
 # Supabase CLI local state (project ref, pooler URL, tool versions)
 supabase/.temp/
+
+.vercel
+.env*

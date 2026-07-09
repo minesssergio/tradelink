@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd ../schwab && npm install && cd ../api && npm install",
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
   ]

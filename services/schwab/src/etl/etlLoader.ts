@@ -72,7 +72,7 @@ export async function deleteStalePositions(
   }
 
   const keep = new Set(currentKeys.map(k => `${k.symbol}|${k.asset_type}`));
-  const staleIds = (data ?? [])
+  const staleIds = ((data ?? []) as Array<{ id: string; symbol: string; asset_type: string }>)
     .filter(row => !keep.has(`${row.symbol}|${row.asset_type}`))
     .map(row => row.id);
 
