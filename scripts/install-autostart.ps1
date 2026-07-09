@@ -34,6 +34,7 @@ try {
 } catch {
     Write-Error "No se pudo registrar la tarea: $($_.Exception.Message)"
     Write-Error "Corre este script desde una ventana normal de PowerShell (no hace falta 'Ejecutar como administrador', pero sí un acceso normal al servicio de Task Scheduler)."
+    Write-Error "Si sigue fallando (p.ej. en un entorno restringido), usa la alternativa sin Task Scheduler: scripts\install-startup-folder.ps1"
     exit 1
 }
 
