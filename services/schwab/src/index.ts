@@ -180,6 +180,7 @@ if (isMain) {
       const results = await runSyncForAllActiveUsers(supabase, config, {
         userId: singleUserId,
         startDate: startDateStr,
+        source: 'cli',
       });
 
       if (results.length === 0) {

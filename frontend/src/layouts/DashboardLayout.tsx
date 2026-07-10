@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
 import { FilterBar } from '../components/FilterBar';
+import { SyncHealthBanner } from '../components/SyncHealthBanner';
 import { FilterProvider } from '../context/FilterContext';
 
 // Pages where the global account/date filters don't apply
@@ -16,6 +17,7 @@ export const DashboardLayout: React.FC = () => {
       <div className="app-container animate-fade-in">
         <Sidebar />
         <main className="main-content">
+          <SyncHealthBanner />
           {showFilters && <FilterBar />}
           <Outlet />
         </main>

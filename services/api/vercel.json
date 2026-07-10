@@ -5,7 +5,7 @@
     { "source": "/(.*)", "destination": "/api/index" }
   ],
   "functions": {
-    "api/index.ts": { "maxDuration": 60 }
+    "api/index.ts": { "maxDuration": 300 }
   },
   "crons": [
     { "path": "/api/v1/cron/sync", "schedule": "0 22 * * 1-5" }

@@ -3,7 +3,7 @@ import { SchwabConfig } from '../types/schwab.types.js';
 import { logger } from '../lib/logger.js';
 import { extractAccountsAndPositions, extractTransactions, extractOrders } from './dataExtractor.js';
 import { transformAccount, transformPositions, transformTransactions, transformOrders, transformBalanceSnapshot } from './dataTransformer.js';
-import { upsertAccount, upsertPositions, insertTransactions, deleteStalePositions, upsertOrders, upsertBalanceSnapshot } from './etlLoader.js';
+import { upsertAccount, upsertPositions, insertTransactions, deleteStalePositions, upsertOrders, upsertBalanceSnapshot, recordSyncRun } from './etlLoader.js';
 import {
   resolveIncrementalStart,
   chunkDateRange,
@@ -12,6 +12,8 @@ import {
   TRANSACTION_OVERLAP_DAYS,
   ORDER_OVERLAP_DAYS,
 } from './syncCursor.js';
+
+export type SyncSource = 'cron' | 'manual' | 'cli';
 
 export interface SyncResult {
   userId: string;
@@ -34,9 +36,11 @@ export async function runSyncJob(
   userId: string,
   config: SchwabConfig,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  source: SyncSource = 'manual'
 ): Promise<SyncResult> {
-  logger.info('Starting Schwab ETL Sync Job', { userId, startDate, endDate });
+  logger.info('Starting Schwab ETL Sync Job', { userId, startDate, endDate, source });
+  const startedAt = Date.now();
 
   const result: SyncResult = {
     userId,
@@ -135,12 +139,28 @@ export async function runSyncJob(
     
   } catch (error) {
     result.error = error as Error;
-    logger.error('Schwab ETL Sync Job failed', { 
-      userId, 
-      error: error instanceof Error ? error.message : String(error), 
-      stack: error instanceof Error ? error.stack : undefined 
+    logger.error('Schwab ETL Sync Job failed', {
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
     });
     console.error('Full Sync Error:', error);
+  }
+
+  // Append to the immutable sync_runs log (never throws; false = table missing)
+  const recorded = await recordSyncRun(supabase, {
+    user_id: userId,
+    source,
+    success: result.success,
+    accounts_processed: result.accountsProcessed,
+    transactions_processed: result.transactionsProcessed,
+    orders_processed: result.ordersProcessed,
+    snapshots_processed: result.snapshotsProcessed,
+    error: result.error ? String(result.error.message ?? result.error) : null,
+    duration_ms: Date.now() - startedAt,
+  });
+  if (!recorded && !result.skippedMissingTables.includes('sync_runs')) {
+    result.skippedMissingTables.push('sync_runs');
   }
 
   return result;
@@ -154,7 +174,7 @@ export async function runSyncJob(
 export async function runSyncForAllActiveUsers(
   supabase: SupabaseClient,
   config: SchwabConfig,
-  options?: { userId?: string; startDate?: string; endDate?: string }
+  options?: { userId?: string; startDate?: string; endDate?: string; source?: SyncSource }
 ): Promise<SyncResult[]> {
   const query = supabase.from('schwab_tokens').select('user_id').eq('status', 'ACTIVE');
   const { data, error } = options?.userId ? await query.eq('user_id', options.userId) : await query;
@@ -171,7 +191,7 @@ export async function runSyncForAllActiveUsers(
   const results: SyncResult[] = [];
   for (const row of data) {
     try {
-      results.push(await runSyncJob(supabase, row.user_id, config, options?.startDate, options?.endDate));
+      results.push(await runSyncJob(supabase, row.user_id, config, options?.startDate, options?.endDate, options?.source ?? 'manual'));
     } catch (error) {
       // runSyncJob already catches internally, but guard here too so one
       // unexpected throw never aborts the remaining users' syncs.

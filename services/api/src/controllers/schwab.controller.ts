@@ -42,7 +42,7 @@ export const triggerSync = async (req: Request, res: Response, next: NextFunctio
     const userId = req.user!.id;
     const config = loadSchwabConfig();
 
-    const result = await runSyncJob(supabase, userId, config, startDate, endDate);
+    const result = await runSyncJob(supabase, userId, config, startDate, endDate, 'manual');
     
     if (!result.success) {
       return res.status(500).json({ error: 'Sync failed', details: result.error });

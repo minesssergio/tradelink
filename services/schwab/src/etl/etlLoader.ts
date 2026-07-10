@@ -141,6 +141,38 @@ export async function upsertBalanceSnapshot(
   return true;
 }
 
+export interface SyncRunRecord {
+  user_id: string;
+  source: 'cron' | 'manual' | 'cli';
+  success: boolean;
+  accounts_processed: number;
+  transactions_processed: number;
+  orders_processed: number;
+  snapshots_processed: number;
+  error: string | null;
+  duration_ms: number;
+}
+
+/**
+ * Appends one row to the immutable sync_runs log. Never throws — a logging
+ * failure must not turn a successful sync into a failed one. Returns false if
+ * the table is missing (migration 007 not applied) so callers can surface it.
+ */
+export async function recordSyncRun(
+  supabase: SupabaseClient,
+  run: SyncRunRecord
+): Promise<boolean> {
+  const { error } = await supabase.from('sync_runs').insert(run);
+  if (error) {
+    if (error.code !== TABLE_MISSING_CODE) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to record sync run (non-fatal):', error.message);
+    }
+    return false;
+  }
+  return true;
+}
+
 export async function insertTransactions(
   supabase: SupabaseClient, 
   transactions: SchwabTransactionRecord[]

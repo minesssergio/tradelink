@@ -76,6 +76,8 @@ Guía para **cualquier asistente de IA** (Claude Code, Cursor, Copilot, Codeium,
   `durationBucketOf`, `advancedStats` y `rollingWinRate` — el motor detrás de Breakdowns/Insights/Win-Rate Charts.
 - `services/schwab/src/etl/syncCursor.test.ts` (Vitest) cubre las funciones puras del cursor incremental
   (`resolveIncrementalStart`, `chunkDateRange`).
+- `frontend/src/lib/syncHealth.test.ts` (Vitest) cubre la lógica pura del banner de salud del sync
+  (`evaluateSyncHealth`: NEEDS_REAUTH crítico, sync viejo >3 días warning, onboarding silencioso).
 - Correr: `npm test` (watch) o `npm test -- --run` (una vez, para CI) en `frontend/` o `services/schwab/`.
 - `services/api` no tiene tests aún — es I/O-heavy (HTTP, Supabase); si le agregas lógica pura nueva,
   sepárala en una función testeable e inyecta las dependencias externas (regla 6 de `RULES.md`).

@@ -89,6 +89,13 @@ Sin el header correcto → 401. Sin la variable configurada → 500 (fail-safe, 
 
 Ver logs de ejecuciones: dashboard de Vercel → proyecto `tradelink-api` → pestaña **Cron Jobs**.
 
+**Observabilidad (migración 007)**: cada corrida (cron/manual/CLI) se registra en la tabla `sync_runs`
+(fuente, éxito, conteos, duración, error). El frontend muestra un banner de alerta global si la conexión
+Schwab del usuario pasa a NEEDS_REAUTH (crítico, rojo) o si el último sync exitoso tiene más de 3 días
+(warning, ámbar) — lógica pura en `frontend/src/lib/syncHealth.ts`, con tests. `maxDuration` de la
+función serverless está en 300s: una corrida de producción real tomó ~50s con un solo usuario, así que
+60s quedaba demasiado justo para varios usuarios o backfills iniciales.
+
 ## 6. Checklist pre-deploy
 
 - [x] `npm run build` pasa en `frontend/`

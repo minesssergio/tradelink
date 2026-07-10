@@ -15,7 +15,7 @@ const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SE
 export const runCronSync = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const config = loadSchwabConfig();
-    const results = await runSyncForAllActiveUsers(supabase, config);
+    const results = await runSyncForAllActiveUsers(supabase, config, { source: 'cron' });
     const failed = results.filter((r) => !r.success);
 
     res.json({
