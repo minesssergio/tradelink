@@ -32,9 +32,18 @@ Guía para **cualquier asistente de IA** (Claude Code, Cursor, Copilot, Codeium,
 - El diseño "account-centric" (ver invariante de arriba) es **intencional** para el caso de una cuenta
   Schwab compartida por dos logins (ej. familia); si nunca vas a soportar eso, no hace falta cambiarlo,
   solo tenlo presente al auditar.
-- **Signup público está abierto** (`Login.tsx`, cualquiera con la URL puede crear cuenta). Si vas a
-  invitar gente específica, restringir esto en Supabase Dashboard → Authentication → Settings (o usar
-  invite-only) es responsabilidad del operador, no algo que el código fuerce.
+- **Signup público está abierto** (`Login.tsx`, cualquiera con la URL puede crear cuenta — email/password
+  o Google OAuth). Si vas a invitar gente específica, restringir esto en Supabase Dashboard →
+  Authentication → Settings (o usar invite-only) es responsabilidad del operador, no algo que el código fuerce.
+- **Login con Google**: el botón existe en `Login.tsx` (`signInWithOAuth`), pero requiere habilitar el
+  provider en Supabase Dashboard → Authentication → Providers → Google, con Client ID/Secret creados en
+  Google Cloud Console (OAuth consent screen + credentials, redirect URI
+  `https://zjnkohzrgrwmezsmihfv.supabase.co/auth/v1/callback`). Hasta entonces el botón devuelve
+  "provider is not enabled".
+- **Aislamiento verificado con test real** (2026-07-10): usuario recién creado → 0 filas en los 6
+  endpoints del API de producción y 0 filas por acceso directo con su JWT a las 7 tablas RLS. El usuario
+  de prueba `isolation-test@tradelink.local` existe en Auth para repetir la prueba; el artefacto
+  `admin@tradingjournal.local` quedó con sus vínculos `is_active=false` (sin visibilidad).
 - El mismo `SCHWAB_CLIENT_ID`/`SECRET` (una sola app registrada en Schwab) sirve para todos los usuarios
   — es el patrón estándar de OAuth multi-tenant, cada quien autoriza su propia cuenta por separado vía
   Settings → Connect Schwab.
@@ -54,7 +63,7 @@ Guía para **cualquier asistente de IA** (Claude Code, Cursor, Copilot, Codeium,
 | Paginación completa de transacciones | `portfolio.controller.ts` (sin `limit` → todo el historial) | El motor FIFO necesita todas las transacciones para emparejar |
 | Sync incremental por cuenta | `services/schwab/src/etl/syncCursor.ts` | Cada sync parte del `MAX(time)`/`MAX(entered_time)` ya guardado, no de una ventana fija — así la BD acumula historia para siempre sin depender de la retención de Schwab. No reintroducir un default de "últimos N días" en los call sites (API/CLI) |
 | `dataVersion` en `FilterContext` | `FilterContext.tsx` + `usePortfolioData.ts` | El botón Sync incrementa esta versión para forzar refetch; si un hook nuevo no la observa, quedará mostrando datos viejos tras sincronizar |
-| Alias de cuenta 100% en localStorage, nunca hardcodeados en código | `FilterContext.tsx` | App multi-usuario: un mapeo hardcodeado de número de cuenta→nombre expone datos personales de un usuario en el bundle JS público que ven todos. No reintroducir `DEFAULT_ACCOUNT_NAMES` ni similar |
+| Alias de cuenta en `user_account_aliases` (BD, RLS por usuario), nunca hardcodeados en código | `FilterContext.tsx` + migración 006 | App multi-usuario: un mapeo hardcodeado de cuenta→nombre expone datos personales en el bundle JS público. Los alias viven en la fila privada de cada usuario (localStorage es solo caché de arranque; la BD gana). No reintroducir `DEFAULT_ACCOUNT_NAMES` ni similar |
 | Cron de sync usa `CRON_SECRET`, nunca JWT de usuario | `server.ts` (`cronAuthMiddleware`) | El endpoint `/api/v1/cron/sync` no tiene un usuario logueado — Vercel Cron manda `Authorization: Bearer $CRON_SECRET` automáticamente. Fail-safe: sin la env var, responde 500 (nunca corre sin secreto) |
 
 ## Testing

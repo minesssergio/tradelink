@@ -75,6 +75,20 @@ export const getPositions = async (req: Request, res: Response, next: NextFuncti
 export const getBalances = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const config = loadSchwabConfig();
+
+    // A user who hasn't connected Schwab yet has no token row — that's a
+    // normal state (fresh signup), not a server error. Return an empty list
+    // with a flag instead of letting the extractor blow up with a 500.
+    const { data: tokenRow } = await getServiceClient()
+      .from('schwab_tokens')
+      .select('status')
+      .eq('user_id', req.user!.id)
+      .maybeSingle();
+
+    if (!tokenRow || tokenRow.status !== 'ACTIVE') {
+      return res.json({ data: [], schwabConnected: false, tokenStatus: tokenRow?.status ?? null });
+    }
+
     const rawAccounts = await extractAccountsAndPositions(getServiceClient(), req.user!.id, config);
 
     const data = rawAccounts.map((a: any) => {

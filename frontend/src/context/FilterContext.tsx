@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { api } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import type { ClosedTrade, LotMethod } from '../lib/tradeEngine';
 
 export interface AccountInfo {
@@ -111,6 +112,22 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
   }, []);
 
+  // Aliases live in the user's private user_account_aliases rows (RLS-scoped),
+  // so they follow the user across browsers. localStorage is just a warm-start
+  // cache; the DB value wins once it loads.
+  useEffect(() => {
+    supabase
+      .from('user_account_aliases')
+      .select('account_hash, alias')
+      .then(({ data, error }) => {
+        if (error || !data) return; // table missing or offline — keep localStorage values
+        const fromDb: Record<string, string> = {};
+        for (const row of data) fromDb[row.account_hash] = row.alias;
+        setAliases(fromDb);
+        localStorage.setItem(LS_ALIAS_KEY, JSON.stringify(fromDb));
+      });
+  }, []);
+
   // Refetch on dataVersion bump too — a sync can extend the latest available date.
   useEffect(() => {
     api.getDateRange()
@@ -126,13 +143,28 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const setRange = useCallback((f: string | null, t: string | null) => { setFrom(f); setTo(t); }, []);
 
   const setAlias = useCallback((hash: string, alias: string) => {
+    const trimmed = alias.trim();
     setAliases(prev => {
       const next = { ...prev };
-      if (alias.trim()) next[hash] = alias.trim();
+      if (trimmed) next[hash] = trimmed;
       else delete next[hash];
       localStorage.setItem(LS_ALIAS_KEY, JSON.stringify(next));
       return next;
     });
+    // Persist to the user's private rows (fire-and-forget; localStorage already
+    // updated so the UI never waits on the network).
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id;
+      if (!userId) return;
+      const { error } = trimmed
+        ? await supabase.from('user_account_aliases').upsert(
+            { user_id: userId, account_hash: hash, alias: trimmed },
+            { onConflict: 'user_id,account_hash' }
+          )
+        : await supabase.from('user_account_aliases').delete().eq('account_hash', hash);
+      if (error) console.error('Failed to persist account alias:', error.message);
+    })();
   }, []);
 
   const accountLabel = useCallback((hash: string) => {

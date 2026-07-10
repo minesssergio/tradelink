@@ -1,9 +1,50 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Link2, RefreshCw, Key, Layers } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { Link2, RefreshCw, Key, Layers, CheckCircle2, AlertTriangle, PlugZap } from 'lucide-react';
 import { useFilters } from '../context/FilterContext';
 import { LOT_METHOD_LABELS, type LotMethod } from '../lib/tradeEngine';
 import { invalidatePortfolioCache } from '../hooks/usePortfolioData';
+
+type SchwabStatus = 'loading' | 'not_connected' | 'ACTIVE' | 'NEEDS_REAUTH' | 'REVOKED';
+
+/**
+ * Reads the CURRENT USER's Schwab connection state from their own
+ * schwab_tokens row (RLS restricts the query to their row only).
+ */
+function useSchwabStatus(refreshKey: number): SchwabStatus {
+  const [status, setStatus] = useState<SchwabStatus>('loading');
+  useEffect(() => {
+    supabase
+      .from('schwab_tokens')
+      .select('status')
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) { setStatus('not_connected'); return; }
+        setStatus((data?.status as SchwabStatus) ?? 'not_connected');
+      });
+  }, [refreshKey]);
+  return status;
+}
+
+const STATUS_UI: Record<Exclude<SchwabStatus, 'loading'>, { icon: typeof CheckCircle2; color: string; label: string; hint: string }> = {
+  ACTIVE: {
+    icon: CheckCircle2, color: 'var(--success)', label: 'Conectado',
+    hint: 'Tu cuenta de Schwab está vinculada. El sync automático corre cada día hábil; usa Force Sync para actualizar ahora.',
+  },
+  NEEDS_REAUTH: {
+    icon: AlertTriangle, color: '#f59e0b', label: 'Requiere re-autorización',
+    hint: 'El refresh token expiró o fue revocado (Schwab los invalida a los 7 días sin uso). Vuelve a conectar con el botón de abajo.',
+  },
+  REVOKED: {
+    icon: AlertTriangle, color: 'var(--danger)', label: 'Revocado',
+    hint: 'La conexión fue revocada. Vuelve a conectar con el botón de abajo.',
+  },
+  not_connected: {
+    icon: PlugZap, color: 'var(--text-muted)', label: 'Sin conectar',
+    hint: 'Todavía no has vinculado tu cuenta de Schwab. Cada usuario conecta la suya — tus datos solo los ves tú.',
+  },
+};
 
 const LOT_METHOD_DESCRIPTIONS: Record<LotMethod, string> = {
   FIFO: 'Shares are sold in order of their purchase dates, from oldest to newest.',
@@ -86,7 +127,9 @@ export const Settings: React.FC = () => {
   const [loadingSync, setLoadingSync] = useState(false);
   const [callbackUrl, setCallbackUrl] = useState('');
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [statusRefresh, setStatusRefresh] = useState(0);
   const { bumpDataVersion } = useFilters();
+  const schwabStatus = useSchwabStatus(statusRefresh);
 
   const handleConnect = async () => {
     setLoadingLink(true);
@@ -134,6 +177,7 @@ export const Settings: React.FC = () => {
       await api.submitCallbackCode(code);
       alert('Code verified! You are now connected to Schwab.');
       setCallbackUrl('');
+      setStatusRefresh(v => v + 1); // refresh the connection-status card
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Failed to verify code');
@@ -155,6 +199,26 @@ export const Settings: React.FC = () => {
             <Link2 size={24} className="brand-icon" />
             <h3 style={{ margin: 0 }}>Charles Schwab Integration</h3>
           </div>
+
+          {/* Connection status — the user's own token row, read via RLS */}
+          {schwabStatus !== 'loading' && (() => {
+            const ui = STATUS_UI[schwabStatus];
+            const Icon = ui.icon;
+            return (
+              <div style={{
+                display: 'flex', gap: '0.75rem', alignItems: 'flex-start',
+                padding: '0.85rem 1rem', borderRadius: '10px',
+                background: 'rgba(255,255,255,0.03)', borderLeft: `3px solid ${ui.color}`,
+              }}>
+                <Icon size={20} style={{ color: ui.color, flexShrink: 0, marginTop: '0.1rem' }} />
+                <div>
+                  <div style={{ fontWeight: 600, color: ui.color, fontSize: '0.9rem' }}>{ui.label}</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5 }}>{ui.hint}</div>
+                </div>
+              </div>
+            );
+          })()}
+
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
             1. Click "Connect Schwab" to authorize.<br/>
             2. When redirected to 127.0.0.1 (it will show an error), copy the ENTIRE URL from your browser's address bar.<br/>
