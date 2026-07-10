@@ -38,6 +38,7 @@ Credenciales: copia `.env.example` → `.env` (raíz) y crea `frontend/.env.loca
 5. [docs/SCHWAB_ETL.md](docs/SCHWAB_ETL.md) — OAuth, rotación de tokens y pipeline ETL
 6. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — despliegue a Vercel + Supabase
 7. [AGENTS.md](AGENTS.md) — guía para desarrollo asistido por IA sin romper invariantes (funciona con cualquier asistente; `CLAUDE.md` apunta aquí)
+8. [docs/REBUILD_ROADMAP.md](docs/REBUILD_ROADMAP.md) — hoja de ruta para una eventual reconstrucción desde cero según estándares de la industria
 
 ## Invariantes críticos (no romper)
 
