@@ -1,6 +1,10 @@
 # 🚀 DEPLOYMENT.md — Despliegue Web (Vercel + Supabase)
 
-> La app está preparada para desplegarse como: frontend estático en Vercel + API Express en Vercel (serverless) + Supabase como BD/Auth (ya en la nube).
+> **✅ Ya desplegado y verificado (2026-07-09):**
+> Frontend: https://tradelink-frontend.vercel.app
+> API: https://tradelink-api.vercel.app
+> Proyectos Vercel: `minedus/tradelink-frontend`, `minedus/tradelink-api`.
+> Verificación end-to-end pasó: login real → API prod → Supabase (cuentas) → Schwab en vivo (balances) → CORS correcto.
 
 ## Arquitectura en producción
 
@@ -17,35 +21,48 @@ Usuario → Vercel (frontend SPA)  →  Vercel (API serverless)  →  Supabase (
 
 ## 1. Desplegar el API (`services/api`)
 
-1. En Vercel: **Add New Project** → importa el repo → **Root Directory: `services/api`**.
+1. Vercel CLI: `vercel login` (o dashboard → **Add New Project** → importa el repo) → **Root Directory: `services/api`**.
 2. La entrada serverless ya existe: `services/api/api/index.ts` + `services/api/vercel.json`
    (el `app.listen()` se omite automáticamente cuando `VERCEL=1`).
-3. Variables de entorno (Settings → Environment Variables) — las mismas del `.env` local:
-   - `SCHWAB_CLIENT_ID`, `SCHWAB_CLIENT_SECRET`, `SCHWAB_CALLBACK_URL`
+3. **Root Directory settings (imprescindible, no opcional)**: en Project Settings → Root Directory,
+   escribe `services/api` Y activa **"Include files outside of the Root Directory in the Build Step"**.
+   Sin esto, `npm run build` falla con `Cannot find module '@trading-journal/schwab-service/...'`
+   porque `services/schwab` (referenciada vía `file:../schwab`) nunca se sube.
+4. **`installCommand` personalizado** (ya en `services/api/vercel.json`): el install por defecto de
+   Vercel solo corre `npm install` en Root Directory — `services/schwab` nunca instalaba sus PROPIAS
+   dependencias (`@supabase/supabase-js`, `dotenv`), fallando con `Cannot find module '@supabase/supabase-js'`
+   aunque el paquete en sí ya se resolviera. El `installCommand` instala ambos:
+   `cd ../schwab && npm install && cd ../api && npm install`.
+5. Variables de entorno (Settings → Environment Variables, target Production) — las mismas del `.env` local:
+   - `SCHWAB_CLIENT_ID`, `SCHWAB_CLIENT_SECRET` — usa credenciales **rotadas**, nunca las que hayan
+     quedado expuestas en texto plano en algún momento.
+   - `SCHWAB_CALLBACK_URL` (mismo valor que local, típicamente `https://127.0.0.1`)
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-   - `CORS_ORIGIN` = URL del frontend (ej. `https://tradelink.vercel.app`)
-4. Deploy → anota la URL (ej. `https://tradelink-api.vercel.app`).
-5. Verifica: `https://tradelink-api.vercel.app/health` → `{"status":"OK"}`.
+   - `CORS_ORIGIN` = URL del frontend (`https://tradelink-frontend.vercel.app`)
+6. Deploy: `vercel deploy --prod` (o vía dashboard). Verifica: `/health` → `{"status":"OK"}`.
 
-> ⚠️ El paquete `@trading-journal/schwab-service` se referencia con `file:../schwab`. En Vercel
-> con Root Directory `services/api` esa carpeta queda fuera del deploy. Opciones:
-> (a) en Vercel usa **Root Directory = raíz del repo** con `vercel.json` ajustado, o
-> (b) configura "Include files outside of Root Directory" (Settings → General) — Vercel lo soporta para monorepos.
-> La opción (b) es la recomendada y no requiere cambios de código.
+> ⚠️ **Bug real encontrado en el primer deploy**: `helmet@8`'s `.d.cts` declara su export con
+> `export {helmet as default}` en vez de `export =`. Bajo `moduleResolution: NodeNext`, esto compila
+> bien con `tsc --noEmit` pero falla con `tsc` (build completo — lo que corre `npm run build`) con
+> `error TS2349: This expression is not callable`. Fix ya aplicado en `server.ts`: cast explícito
+> documentado en el import de helmet. Si actualizas la versión de `helmet`, revisa si el paquete
+> corrigió su declaración de tipos antes de quitar el workaround.
 
 ## 2. Desplegar el Frontend (`frontend`)
 
-1. **Add New Project** → mismo repo → **Root Directory: `frontend`** (framework: Vite).
-2. Variables de entorno:
-   - `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (los de `frontend/.env.local`)
+1. `vercel deploy` desde `frontend/` (o dashboard → **Add New Project** → Root Directory: `frontend`, framework: Vite).
+2. Variables de entorno (target Production):
+   - `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (los de `frontend/.env.local` — el anon key es
+     público por diseño de Supabase, protegido por RLS, no requiere el mismo cuidado que el service role key)
    - `VITE_API_BASE_URL` = `https://tradelink-api.vercel.app/api/v1`
 3. `frontend/vercel.json` ya incluye el rewrite SPA (todas las rutas → `index.html`).
-4. Deploy.
+4. Deploy: `vercel deploy --prod`.
 
 ## 3. Supabase (ya en la nube)
 
 - Auth → URL Configuration: añade la URL del frontend de Vercel a **Site URL** y **Redirect URLs**.
-- Verifica que las migraciones 001–005 estén aplicadas (`supabase/migrations/`).
+- Verifica que las migraciones 001–005 estén aplicadas (`supabase/migrations/`) — se pueden aplicar
+  con `supabase login --token <PAT> && supabase link --project-ref <ref> && supabase db push`.
 
 ## 4. Schwab OAuth en producción
 
@@ -54,18 +71,32 @@ Usuario → Vercel (frontend SPA)  →  Vercel (API serverless)  →  Supabase (
 
 ## 5. Sincronización programada (cron)
 
-El sync corre hoy manualmente (botón en Settings o CLI). En producción:
+El sync corre hoy manualmente (botón en Settings/FilterBar o CLI). En producción:
 
 - **Vercel Cron**: crea `services/api/src/routes/cron.routes.ts` que llame a `runSyncJob` y regístralo
   en `vercel.json` → `"crons": [{ "path": "/api/v1/cron/sync", "schedule": "0 22 * * 1-5" }]`.
-  Protégelo comparando `Authorization: Bearer ${CRON_SECRET}`.
-- **Alternativa local (hoy)**: Programador de tareas de Windows ejecutando
-  `npx tsx src/index.ts --sync` en `services/schwab` (los snapshots de balance se acumulan con cada sync).
+  Protégelo comparando `Authorization: Bearer ${CRON_SECRET}`. **No implementado todavía.**
+- **Alternativa local (hoy)**: `scripts/install-startup-folder.ps1` (ver `docs/ALWAYS_ON.md`) mantiene
+  la app local siempre activa, pero el sync sigue siendo manual vía el botón Sync.
 
 ## 6. Checklist pre-deploy
 
-- [ ] `npm run build` pasa en `frontend/`
-- [ ] `npx tsc --noEmit` pasa en `services/api` y `services/schwab`
-- [ ] `.env` NO está commiteado (verifica `git ls-files | findstr .env` → solo `.env.example`)
-- [ ] Migraciones 001–005 aplicadas en Supabase
-- [ ] `CORS_ORIGIN` apunta al dominio real del frontend
+- [x] `npm run build` pasa en `frontend/`
+- [x] `npx tsc --noEmit` pasa en `services/api` y `services/schwab`
+- [x] `.env` NO está commiteado (verifica `git ls-files | findstr .env` → solo `.env.example`)
+- [x] Migraciones 001–005 aplicadas en Supabase
+- [x] `CORS_ORIGIN` apunta al dominio real del frontend
+- [x] Credenciales de Schwab rotadas antes de configurarlas en Vercel
+
+## 7. Redeploy tras cambios de código o variables de entorno
+
+```bash
+# API (desde la raíz del repo, para que suba el monorepo completo):
+vercel deploy --prod --yes
+
+# Frontend:
+cd frontend && vercel deploy --prod --yes
+```
+
+Cambiar una variable de entorno en el dashboard **no** redeploya automáticamente — hay que correr
+el comando de arriba (o usar el botón "Redeploy" en el dashboard) para que tome efecto.

@@ -2,6 +2,8 @@
 
 Journal de trading tipo TradesViz conectado a una cuenta real de Charles Schwab vía OAuth 2.0: sincroniza cuentas, posiciones, transacciones y órdenes a Supabase, y muestra dashboards analíticos (PnL, win-rate, equity curve, calendario, crecimiento de cuenta).
 
+**En producción**: https://tradelink-frontend.vercel.app (API en https://tradelink-api.vercel.app) — ver [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Arranque rápido (local)
 
 ```
