@@ -22,6 +22,22 @@ Guía para **cualquier asistente de IA** (Claude Code, Cursor, Copilot, Codeium,
 - Sync manual: `cd services/schwab && npx tsx src/index.ts --sync [--user <uuid>] [--start-date <ISO>]`.
 - El sync toca la API real de Schwab: úsalo con moderación, y NUNCA guardes/reutilices refresh tokens viejos (Schwab los invalida al rotar).
 - En la app misma, el botón **Sync** de la barra de filtros hace lo mismo sin salir del navegador.
+- En producción, `POST /api/v1/cron/sync` (protegido por `CRON_SECRET`) corre automático lun-vie 22:00 UTC vía Vercel Cron — sincroniza a todos los usuarios con token ACTIVE. Ver `docs/DEPLOYMENT.md` sección 5.
+
+## Multi-tenancy (varios usuarios, cada uno con sus propias credenciales Schwab)
+
+- **Aislamiento verificado en dos capas independientes**: RLS (`auth.uid() = user_id`, las 7 tablas) +
+  filtro por `account_hash` en la API (`getUserAccountHashes`). Dos usuarios con cuentas Schwab reales
+  distintas nunca comparten datos — sus `account_hash` nunca coinciden.
+- El diseño "account-centric" (ver invariante de arriba) es **intencional** para el caso de una cuenta
+  Schwab compartida por dos logins (ej. familia); si nunca vas a soportar eso, no hace falta cambiarlo,
+  solo tenlo presente al auditar.
+- **Signup público está abierto** (`Login.tsx`, cualquiera con la URL puede crear cuenta). Si vas a
+  invitar gente específica, restringir esto en Supabase Dashboard → Authentication → Settings (o usar
+  invite-only) es responsabilidad del operador, no algo que el código fuerce.
+- El mismo `SCHWAB_CLIENT_ID`/`SECRET` (una sola app registrada en Schwab) sirve para todos los usuarios
+  — es el patrón estándar de OAuth multi-tenant, cada quien autoriza su propia cuenta por separado vía
+  Settings → Connect Schwab.
 
 ## Invariantes que NO se pueden regresar
 
@@ -38,6 +54,8 @@ Guía para **cualquier asistente de IA** (Claude Code, Cursor, Copilot, Codeium,
 | Paginación completa de transacciones | `portfolio.controller.ts` (sin `limit` → todo el historial) | El motor FIFO necesita todas las transacciones para emparejar |
 | Sync incremental por cuenta | `services/schwab/src/etl/syncCursor.ts` | Cada sync parte del `MAX(time)`/`MAX(entered_time)` ya guardado, no de una ventana fija — así la BD acumula historia para siempre sin depender de la retención de Schwab. No reintroducir un default de "últimos N días" en los call sites (API/CLI) |
 | `dataVersion` en `FilterContext` | `FilterContext.tsx` + `usePortfolioData.ts` | El botón Sync incrementa esta versión para forzar refetch; si un hook nuevo no la observa, quedará mostrando datos viejos tras sincronizar |
+| Alias de cuenta 100% en localStorage, nunca hardcodeados en código | `FilterContext.tsx` | App multi-usuario: un mapeo hardcodeado de número de cuenta→nombre expone datos personales de un usuario en el bundle JS público que ven todos. No reintroducir `DEFAULT_ACCOUNT_NAMES` ni similar |
+| Cron de sync usa `CRON_SECRET`, nunca JWT de usuario | `server.ts` (`cronAuthMiddleware`) | El endpoint `/api/v1/cron/sync` no tiene un usuario logueado — Vercel Cron manda `Authorization: Bearer $CRON_SECRET` automáticamente. Fail-safe: sin la env var, responde 500 (nunca corre sin secreto) |
 
 ## Testing
 

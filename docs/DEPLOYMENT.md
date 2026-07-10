@@ -69,15 +69,25 @@ Usuario → Vercel (frontend SPA)  →  Vercel (API serverless)  →  Supabase (
 - En el portal de desarrolladores de Schwab, el **Callback URL** registrado debe coincidir con
   `SCHWAB_CALLBACK_URL`. El flujo actual (copiar/pegar la URL con `?code=`) funciona igual en producción.
 
-## 5. Sincronización programada (cron)
+## 5. Sincronización programada (cron) — ✅ implementado
 
-El sync corre hoy manualmente (botón en Settings/FilterBar o CLI). En producción:
+`POST /api/v1/cron/sync` (`services/api/src/controllers/cron.controller.ts`) sincroniza a **todos**
+los usuarios con token Schwab `ACTIVE` — cada uno en su propio try/catch, así que uno fallando nunca
+bloquea a los demás. Registrado en `services/api/vercel.json`:
+```json
+"crons": [{ "path": "/api/v1/cron/sync", "schedule": "0 22 * * 1-5" }]
+```
+Lunes a viernes 22:00 UTC (~después del cierre de mercado). Para cambiar el horario, edita el
+`schedule` y redeploy — el plan Hobby de Vercel permite como máximo 1 invocación diaria por cron job.
 
-- **Vercel Cron**: crea `services/api/src/routes/cron.routes.ts` que llame a `runSyncJob` y regístralo
-  en `vercel.json` → `"crons": [{ "path": "/api/v1/cron/sync", "schedule": "0 22 * * 1-5" }]`.
-  Protégelo comparando `Authorization: Bearer ${CRON_SECRET}`. **No implementado todavía.**
-- **Alternativa local (hoy)**: `scripts/install-startup-folder.ps1` (ver `docs/ALWAYS_ON.md`) mantiene
-  la app local siempre activa, pero el sync sigue siendo manual vía el botón Sync.
+**Protección**: `CRON_SECRET` (env var) — Vercel manda automáticamente
+`Authorization: Bearer ${CRON_SECRET}` al invocar el cron, y el middleware en `server.ts` lo valida.
+Sin el header correcto → 401. Sin la variable configurada → 500 (fail-safe, nunca corre sin secreto).
+
+**El botón manual sigue intacto**: "Sync" en la FilterBar y "Force Sync" en Settings llaman a
+`POST /api/v1/schwab/sync` (autenticado por JWT de usuario, no por CRON_SECRET) — sin cambios.
+
+Ver logs de ejecuciones: dashboard de Vercel → proyecto `tradelink-api` → pestaña **Cron Jobs**.
 
 ## 6. Checklist pre-deploy
 
