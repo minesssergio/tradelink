@@ -3,5 +3,11 @@
   "installCommand": "cd ../schwab && npm install && cd ../api && npm install",
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "functions": {
+    "api/index.ts": { "maxDuration": 60 }
+  },
+  "crons": [
+    { "path": "/api/v1/cron/sync", "schedule": "0 22 * * 1-5" }
   ]
 }

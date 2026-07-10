@@ -18,8 +18,10 @@ dotenv.config({ path: path.join(__dirname, '../../../.env') });
 
 import schwabRoutes from './routes/schwab.routes.js';
 import portfolioRoutes from './routes/portfolio.routes.js';
+import cronRoutes from './routes/cron.routes.js';
 import { authMiddleware } from './middleware/auth.middleware.js';
 import { errorHandler } from './middleware/error.middleware.js';
+import type { Request, Response, NextFunction } from 'express';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -40,6 +42,23 @@ app.get('/health', (req, res) => res.json({ status: 'OK' }));
 // Protected API Routes
 app.use('/api/v1/schwab', authMiddleware, schwabRoutes);
 app.use('/api/v1/portfolio', authMiddleware, portfolioRoutes);
+
+// Cron routes: no logged-in user, so they use their own shared-secret check
+// instead of the per-user JWT authMiddleware. Vercel Cron automatically sends
+// `Authorization: Bearer ${CRON_SECRET}` when that env var is set — see
+// https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs
+const cronAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const expected = process.env.CRON_SECRET;
+  if (!expected) {
+    console.error('CRON_SECRET is not set — refusing all cron requests');
+    return res.status(500).json({ error: 'Server misconfiguration' });
+  }
+  if (req.headers.authorization !== `Bearer ${expected}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+};
+app.use('/api/v1/cron', cronAuthMiddleware, cronRoutes);
 
 // Error Handling
 app.use(errorHandler);

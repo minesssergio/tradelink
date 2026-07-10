@@ -75,19 +75,6 @@ function loadPersisted(): { selected: string[]; from: string | null; to: string 
   return { selected: [], from: null, to: null };
 }
 
-/**
- * Default account names (keyed by Schwab account number). They ship in code so
- * they work in any browser; edits from the UI are stored in localStorage and
- * take precedence.
- */
-const DEFAULT_ACCOUNT_NAMES: Record<string, string> = {
-  '52523203': 'SMINESS',
-  '70783062': 'Growth_26',
-  '77014886': 'Trending_26',
-  '77075350': 'Swing_26',
-  '81408936': 'Spy_26',
-};
-
 function loadAliases(): Record<string, string> {
   try {
     return JSON.parse(localStorage.getItem(LS_ALIAS_KEY) || '{}');
@@ -151,7 +138,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const accountLabel = useCallback((hash: string) => {
     const acc = accounts.find(a => a.account_hash === hash);
     const num = String(acc?.account_number || hash.slice(0, 8));
-    const name = aliases[hash] || DEFAULT_ACCOUNT_NAMES[num];
+    const name = aliases[hash];
     return name ? `${name} ···${num.slice(-4)}` : `···${num.slice(-4)}`;
   }, [aliases, accounts]);
 

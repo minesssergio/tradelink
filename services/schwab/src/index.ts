@@ -168,31 +168,23 @@ if (isMain) {
     try {
       // Sync every ACTIVE user, or a single one if --user <uuid> is provided
       const userIndex = args.indexOf('--user');
-      const singleUserId = userIndex !== -1 ? args[userIndex + 1] : null;
+      const singleUserId = userIndex !== -1 ? args[userIndex + 1] : undefined;
 
-      const query = supabase.from('schwab_tokens').select('user_id').eq('status', 'ACTIVE');
-      const { data } = singleUserId ? await query.eq('user_id', singleUserId) : await query;
-      if (!data || data.length === 0) {
-        logger.error('No active users found for sync');
-        process.exit(1);
-      }
       // --start-date is an optional manual override (e.g. forced resync of a
       // specific range). Left unset, runSyncJob resolves an incremental start
       // per account from what's already stored — see syncCursor.ts.
       const startDateIndex = args.indexOf('--start-date');
       const startDateStr = (startDateIndex !== -1 && args[startDateIndex + 1]) ? args[startDateIndex + 1] : undefined;
 
-      const { runSyncJob } = await import('./etl/syncService.js');
-      const results = [];
-      for (const row of data) {
-        const result = await runSyncJob(
-          supabase,
-          row.user_id,
-          config,
-          startDateStr,
-          undefined
-        );
-        results.push(result);
+      const { runSyncForAllActiveUsers } = await import('./etl/syncService.js');
+      const results = await runSyncForAllActiveUsers(supabase, config, {
+        userId: singleUserId,
+        startDate: startDateStr,
+      });
+
+      if (results.length === 0) {
+        logger.error('No active users found for sync');
+        process.exit(1);
       }
 
       console.log('\n📊 Sync Results:\n', JSON.stringify(results, null, 2));

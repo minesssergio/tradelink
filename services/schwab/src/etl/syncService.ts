@@ -145,3 +145,52 @@ export async function runSyncJob(
 
   return result;
 }
+
+/**
+ * Runs the sync job for every user with an ACTIVE Schwab token, or a single
+ * one if `userId` is given. Shared by the CLI (`--sync`) and the Vercel Cron
+ * endpoint so both stay in lockstep — one user's failure never blocks the rest.
+ */
+export async function runSyncForAllActiveUsers(
+  supabase: SupabaseClient,
+  config: SchwabConfig,
+  options?: { userId?: string; startDate?: string; endDate?: string }
+): Promise<SyncResult[]> {
+  const query = supabase.from('schwab_tokens').select('user_id').eq('status', 'ACTIVE');
+  const { data, error } = options?.userId ? await query.eq('user_id', options.userId) : await query;
+
+  if (error) {
+    logger.error('Failed to list active users for sync', { error: error.message });
+    return [];
+  }
+  if (!data || data.length === 0) {
+    logger.info('No active users found for sync');
+    return [];
+  }
+
+  const results: SyncResult[] = [];
+  for (const row of data) {
+    try {
+      results.push(await runSyncJob(supabase, row.user_id, config, options?.startDate, options?.endDate));
+    } catch (error) {
+      // runSyncJob already catches internally, but guard here too so one
+      // unexpected throw never aborts the remaining users' syncs.
+      logger.error('Unexpected error syncing user — skipping', {
+        userId: row.user_id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      results.push({
+        userId: row.user_id,
+        success: false,
+        accountsProcessed: 0,
+        positionsProcessed: 0,
+        transactionsProcessed: 0,
+        ordersProcessed: 0,
+        snapshotsProcessed: 0,
+        skippedMissingTables: [],
+        error: error as Error,
+      });
+    }
+  }
+  return results;
+}
